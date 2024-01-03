@@ -75,7 +75,7 @@ $ kvscheck -version
 1.　GitHubより4DSVMultiをインストールする
 ```
 $ cd ~/Work/　　（インストールしたいディレクトリに移動する）
-$ git clone https://github.com/Ren-SAKAI/4DSVSimpleViewer.git
+$ git clone https://github.com/1935067t/4DSVMulti.git
 ```
 
 2.　コンパイルする
