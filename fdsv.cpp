@@ -1,6 +1,12 @@
 #include <opencv2/opencv.hpp>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <vector>
 #include <cmath>
 #include <chrono>
+
+namespace fs = std::filesystem;
 
 typedef cv::Point3_<uint8_t> Pixel;
 typedef std::chrono::_V2::system_clock::time_point Time;
@@ -37,10 +43,14 @@ int currentframe;
 float framerate;
 float frameInterval;
 float deltaTime;
-int waitTime;
 std::chrono::duration<float, std::milli> elapsed;
 Time previousTime;
 Time currentTime;
+
+//4dsv
+cv::Point3i dimension;
+cv::Point3i position;
+std::vector<std::string> filepathes;
 
 cv::VideoCapture mainVideo;
 cv::Mat srcimg;
@@ -80,7 +90,7 @@ void InitRayVector(cv::Mat& rayvector)
     }
 }
 
-void MakeDstimg(cv::Mat& dstimg, const cv::Mat& rayvector, const cv::Mat& srcimg)
+void MakeDstimg(cv::Mat& dstimg, const cv::Mat& srcimg)
 {
     const int srcWidth = srcimg.cols;
     const int srcHeight = srcimg.rows;
@@ -100,7 +110,7 @@ void MakeDstimg(cv::Mat& dstimg, const cv::Mat& rayvector, const cv::Mat& srcimg
     rightbottom = xAxis * correctionX - yAxis * correctionY + zAxis;
 
     dstimg.forEach<Pixel>
-    ([&rayvector, &srcimg, &lefttop, &leftbottom, &righttop, &rightbottom,
+    ([&srcimg, &lefttop, &leftbottom, &righttop, &rightbottom,
      srcWidth, srcHeight, channels, dstWidth, dstHeight]
     (Pixel& pixel, const int position[]) -> void
     {
@@ -151,28 +161,6 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
     }
 }
 
-void RotateByKeyInput(char key)
-{
-    switch (key)
-    {
-    case 'a'://左へ
-        Rotate(0,-0.05f,0);break;
-    case 'd'://右へ
-        Rotate(0,0.05f,0);break;
-    case 'w'://上へ
-        Rotate(-0.05f,0,0);break;
-    case 's'://下へ
-        Rotate(0.05f,0,0);break;
-    case 'q'://左回転
-        Rotate(0,0,-0.05f);break;
-    case 'e'://右回転
-        Rotate(0,0,0.05f);break;
-    
-    default:
-        break;
-    }
-}
-
 void StepForward(cv::VideoCapture* video, cv::Mat* img)
 {
     if(reachEnd){
@@ -199,30 +187,7 @@ void StepBackWard(cv::VideoCapture* video, cv::Mat* img)
     video->read(*img);
 }
 
-void OperateVideoByKeyInput(char key, cv::VideoCapture* video, cv::Mat* img)
-{
-    switch (key)
-    {
-    case ' '://space
-        playing = !playing;
-        previousTime = std::chrono::high_resolution_clock::now();
-        deltaTime = 0.0f;
-        break;
-
-    case 13://Enter
-        playing = false;
-        StepForward(video, img);
-        break;
-
-    case 8://backspace
-        StepBackWard(video, img);
-    
-    default:
-        break;
-    }
-}
-
-void InitVideo(char* filename, cv::VideoCapture* video, cv::Mat* img)
+void InitVideo(std::string filename, cv::VideoCapture* video, cv::Mat* img)
 {
     video->open(filename);
     framecount = video->get(cv::CAP_PROP_FRAME_COUNT);
@@ -247,43 +212,152 @@ int ProccessVideo(cv::VideoCapture* video, cv::Mat* img)
     }
     return key;
 }
-// int ProccessVideo(cv::VideoCapture* video, cv::Mat* img)
-// {
-//     currentTime = std::chrono::high_resolution_clock::now();
-//     elapsed = currentTime - previousTime;
-//     deltaTime += elapsed.count();
-//     previousTime = currentTime;
 
-//     int key = cv::waitKey(1);
-//     if(deltaTime >= frameInterval){
-//         deltaTime -= frameInterval;
-//         // video->read(*img);
-//         StepForward(video,img);
-//     }
-//     return key;
-// }
+void ChangeVideoPos(int x, int y, int z)
+{
+    int movedX = position.x + x;
+    int movedY = position.y + y;
+    int movedZ = position.z + z;
 
+    if(movedX < 0 || movedX >= dimension.x ||
+       movedY < 0 || movedY >= dimension.y ||
+       movedZ < 0 || movedZ >= dimension.z)
+    {return;}
+
+    position.x = movedX;
+    position.y = movedY;
+    position.z = movedZ;
+    int fileIdx = position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
+    mainVideo.open(filepathes[fileIdx]);
+    mainVideo.set(cv::CAP_PROP_POS_FRAMES, currentframe);
+    mainVideo.read(srcimg);
+}
+
+void ReadConfigFile(char * filename)
+{
+    std::ifstream config(filename);
+    std::string maindir;
+    std::string subdir;
+    std::string extension;
+
+    config >> maindir;
+    config >> extension;
+    config >> dimension.x >> dimension.y >> dimension.z;
+    config >> position.x >> position.y >> position.z;
+    config >> framerate;
+    config >> subdir;
+
+    if(fs::exists(maindir) == false){
+        printf("video directory not Found\n");
+        exit(1);
+    }
+    
+    //extensionが一致するファイルのパスを取得する
+    fs::directory_iterator iter(maindir), end;
+    std::error_code errCode;
+    for(;iter != end; iter.increment(errCode)){
+        fs::directory_entry entry = *iter;
+        std::string filetype = entry.path().extension().string();
+        if(filetype == ("."+ extension)){
+            filepathes.push_back(entry.path().string());
+        }
+    }
+
+    if(dimension.x * dimension.y * dimension.z != (int)filepathes.size()){
+        std::cout << "dimension is strange" << std::endl;
+        exit(1);
+    }
+
+    std::sort(filepathes.begin(),filepathes.end());
+
+    int fileIdx = position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
+    InitVideo(filepathes[fileIdx],&mainVideo,&srcimg);
+}
+
+void RotateByKeyInput(char key)
+{
+    switch (key)
+    {
+    case 'a'://左へ
+        Rotate(0,-0.05f,0);break;
+    case 'd'://右へ
+        Rotate(0,0.05f,0);break;
+    case 'w'://上へ
+        Rotate(-0.05f,0,0);break;
+    case 's'://下へ
+        Rotate(0.05f,0,0);break;
+    case 'q'://左回転
+        Rotate(0,0,-0.05f);break;
+    case 'e'://右回転
+        Rotate(0,0,0.05f);break;
+    
+    default:
+        break;
+    }
+}
+
+void OperateVideoByKeyInput(char key, cv::VideoCapture* video, cv::Mat* img)
+{
+    switch (key)
+    {
+    case ' '://space
+        playing = !playing;
+        previousTime = std::chrono::high_resolution_clock::now();
+        deltaTime = 0.0f;
+        break;
+
+    case 13://Enter
+        playing = false;
+        StepForward(video, img);
+        break;
+
+    case 8://backspace
+        StepBackWard(video, img);
+    
+    default:
+        break;
+    }
+}
+
+void OperateVideoSwitch(char key)
+{
+    int x = 0;
+    int y = 0;
+    int z = 0;
+    switch (key)
+    {
+    case 'h':
+        x = -1; break;
+    case 'l':
+        x = 1;  break;
+    case 'j':
+        y = -1; break;
+    case 'k':
+        y = 1;  break;
+    case ',':
+        z = -1; break;
+    case '.':
+        z = 1;  break;
+
+    default:
+        return;
+    }
+    ChangeVideoPos(x, y, z);
+    std::cout << "position" << position << std::endl;
+}
 
 int main(int argc, char **argv) {
     if(argc == 1){
         std::cout << "please input filename";
         exit(1);
     }
-    if(argc == 4){
-        scWidth = atoi(argv[2]);
-        scHeight = atoi(argv[3]);
-    }
-    // cv::Mat srcimg;
-    // cv::VideoCapture video(argv[1]);
-    InitVideo(argv[1],&mainVideo,&srcimg);
+    ReadConfigFile(argv[1]);
+    // cv::putText(srcimg,"test",cv::Point(100,100),cv::FONT_HERSHEY_PLAIN,1.0,cv::Scalar(1.0,1.0,1.0));
 
     cv::Mat rayvector = cv::Mat(cv::Size(scWidth,scHeight),CV_32FC3,cv::Scalar::all(0.0f));
     cv::Mat dstimg(cv::Size(scWidth, scHeight), srcimg.type(), cv::Scalar::all(0));
     std::cout << srcimg.size << std::endl;
-    MakeDstimg(dstimg,rayvector,srcimg);
-
-    cv::namedWindow("Main");
-    cv::setMouseCallback("Main",MouseCallback);
+    MakeDstimg(dstimg,srcimg);
 
     // std::cout << "経過時間: " << elapsed.count() << " ms" << std::endl;
     cv::imshow("Main",dstimg);
@@ -307,8 +381,9 @@ int main(int argc, char **argv) {
 
         RotateByKeyInput(keyC);
         OperateVideoByKeyInput(keyC, &mainVideo, &srcimg);
+        OperateVideoSwitch(keyC);
 
-        MakeDstimg(dstimg,rayvector,srcimg);
+        MakeDstimg(dstimg,srcimg);
         cv::imshow("Main",dstimg);
         
     }
