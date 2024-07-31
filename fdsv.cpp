@@ -3,32 +3,47 @@
 #include <chrono>
 
 typedef cv::Point3_<uint8_t> Pixel;
-typedef cv::Point3_<float> Vector;
+typedef std::chrono::_V2::system_clock::time_point Time;
 
 // constexpr const double pi = 3.141592653589793;
 const double pi = acos(-1);
 const double dpi = pi * 2;
-const double deg2rad = pi / 180.0;
-const double rad2deg = 180.0 / pi;
+
+
 //視野角
-const float fov = 60.0f;
-//スクリーンサイズ
+const float fov = 80.0f;
+//デフォルトスクリーンサイズ
 int scHeight = 500;
 int scWidth = 500;
+
 //回転軸
 cv::Vec3d xAxis(1.0f,0.0f,0.0f);
 cv::Vec3d yAxis(0.0f,1.0f,0.0f);
 cv::Vec3d zAxis(0.0f,0.0f,1.0f);
-
-float sensitivityXY = 0.1f;
-float sensitivityZ = 0.1f;
-
-
 //回転行列
 cv::Matx33d xRotateMat(0.0f);
 cv::Matx33d yRotateMat(0.0f);
 cv::Matx33d zRotateMat(0.0f);
 cv::Matx33d zyxRotateMat(0.0f);
+
+float sensitivityXY = 0.1f;
+float sensitivityZ = 0.1f;
+
+//動画
+bool playing = false;
+bool reachEnd = false;
+int framecount;
+int currentframe;
+float framerate;
+float frameInterval;
+float deltaTime;
+int waitTime;
+std::chrono::duration<float, std::milli> elapsed;
+Time previousTime;
+Time currentTime;
+
+cv::VideoCapture mainVideo;
+cv::Mat srcimg;
 
 void InitRayVector(cv::Mat& rayvector)
 {
@@ -40,7 +55,7 @@ void InitRayVector(cv::Mat& rayvector)
     lefttop.x = std::sin((aspect * fov / 2.0 * pi) / 180.0) * -1;
     lefttop.y = std::sin((fov / 2.0 * pi) / 180.0);
 
-    lefttop =  xAxis * std::sin(aspect * fov / 2.0 * deg2rad);
+    // lefttop =  xAxis * std::sin(aspect * fov / 2.0 * deg2rad);
     
     
     righttop.x = lefttop.x * -1;
@@ -75,7 +90,6 @@ void MakeDstimg(cv::Mat& dstimg, const cv::Mat& rayvector, const cv::Mat& srcimg
     const int dstHeight = dstimg.rows;
 
     cv::Vec3f lefttop, righttop, leftbottom, rightbottom;
-    // float aspect = (float)scWidth / (float)scHeight;
     float aspect = (float)dstWidth / (float)dstHeight;
     float correctionX = std::sin((aspect * fov / 2.0 * pi) / 180.0);
     float correctionY = std::sin((fov / 2.0 * pi) / 180.0);
@@ -105,7 +119,6 @@ void MakeDstimg(cv::Mat& dstimg, const cv::Mat& rayvector, const cv::Mat& srcimg
         pixel.y = srcimg.data[srcIdx + 1];
         pixel.z = srcimg.data[srcIdx + 2];
         // pixel = srcimg.at<Pixel>(srcHIdx,srcWIdx);
-        // srcimg.ptr<Pixel>
     });
 }
 
@@ -126,10 +139,16 @@ void Rotate(float roll, float pitch, float yaw)
     xAxis = cv::Vec3d(xAxisMat.val);
 
     zAxis = cv::normalize(zAxis);
-    // xAxis[2] = zAxis[2] != 0.0f ? (zAxis[0]*xAxis[0] + zAxis[1]*xAxis[1])/zAxis[2] : 1.0f;
     xAxis = cv::normalize(xAxis);
     yAxis = zAxis.cross(xAxis);
     yAxis = cv::normalize(yAxis);
+}
+
+void MouseCallback(int event, int x, int y, int flags, void *userdata)
+{
+    if (event == cv::EVENT_LBUTTONDOWN) {
+        std::cout << "Left mouse button is pressed." << std::endl;
+    }
 }
 
 void RotateByKeyInput(char key)
@@ -154,94 +173,145 @@ void RotateByKeyInput(char key)
     }
 }
 
-int main() {
-    cv::Mat img;
-    img = cv::imread("../omni_image_er.bmp");
+void StepForward(cv::VideoCapture* video, cv::Mat* img)
+{
+    if(reachEnd){
+        playing = false;
+        return;
+    }
+    video->read(*img);
+    currentframe++;
+    if(currentframe >= framecount - 1){
+        reachEnd = true;
+    }
+    return;
+}
 
-    scHeight = 500;
-    scWidth = 500;
+void StepBackWard(cv::VideoCapture* video, cv::Mat* img)
+{
+    playing = false;
+    reachEnd = false;
+    currentframe--;
+    if(currentframe < 0){
+        currentframe = 0;
+    }
+    video->set(cv::CAP_PROP_POS_FRAMES, currentframe);
+    video->read(*img);
+}
+
+void OperateVideoByKeyInput(char key, cv::VideoCapture* video, cv::Mat* img)
+{
+    switch (key)
+    {
+    case ' '://space
+        playing = !playing;
+        previousTime = std::chrono::high_resolution_clock::now();
+        deltaTime = 0.0f;
+        break;
+
+    case 13://Enter
+        playing = false;
+        StepForward(video, img);
+        break;
+
+    case 8://backspace
+        StepBackWard(video, img);
+    
+    default:
+        break;
+    }
+}
+
+void InitVideo(char* filename, cv::VideoCapture* video, cv::Mat* img)
+{
+    video->open(filename);
+    framecount = video->get(cv::CAP_PROP_FRAME_COUNT);
+    framerate = video->get(cv::CAP_PROP_FPS);
+    frameInterval = 1000.0f / framerate;
+    currentframe = 0;
+    video->read(*img);
+}
+
+int ProccessVideo(cv::VideoCapture* video, cv::Mat* img)
+{
+    currentTime = std::chrono::high_resolution_clock::now();
+    elapsed = currentTime - previousTime;
+    deltaTime += elapsed.count();
+    previousTime = currentTime;
+
+    int key = cv::pollKey();
+    if(deltaTime >= frameInterval){
+        deltaTime -= frameInterval;
+        // video->read(*img);
+        StepForward(video,img);
+    }
+    return key;
+}
+// int ProccessVideo(cv::VideoCapture* video, cv::Mat* img)
+// {
+//     currentTime = std::chrono::high_resolution_clock::now();
+//     elapsed = currentTime - previousTime;
+//     deltaTime += elapsed.count();
+//     previousTime = currentTime;
+
+//     int key = cv::waitKey(1);
+//     if(deltaTime >= frameInterval){
+//         deltaTime -= frameInterval;
+//         // video->read(*img);
+//         StepForward(video,img);
+//     }
+//     return key;
+// }
+
+
+int main(int argc, char **argv) {
+    if(argc == 1){
+        std::cout << "please input filename";
+        exit(1);
+    }
+    if(argc == 4){
+        scWidth = atoi(argv[2]);
+        scHeight = atoi(argv[3]);
+    }
+    // cv::Mat srcimg;
+    // cv::VideoCapture video(argv[1]);
+    InitVideo(argv[1],&mainVideo,&srcimg);
 
     cv::Mat rayvector = cv::Mat(cv::Size(scWidth,scHeight),CV_32FC3,cv::Scalar::all(0.0f));
-    cv::Mat dstimg(cv::Size(scWidth, scHeight), img.type(), cv::Scalar::all(0));
-    std::cout << img.size << std::endl;
-    // InitRayVector(rayvector);
-    auto start = std::chrono::high_resolution_clock::now();
-    MakeDstimg(dstimg,rayvector,img);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> elapsed = end - start;
-    std::cout << "経過時間: " << elapsed.count() << " ms" << std::endl;
-    cv::imshow("dst",dstimg);
+    cv::Mat dstimg(cv::Size(scWidth, scHeight), srcimg.type(), cv::Scalar::all(0));
+    std::cout << srcimg.size << std::endl;
+    MakeDstimg(dstimg,rayvector,srcimg);
+
+    cv::namedWindow("Main");
+    cv::setMouseCallback("Main",MouseCallback);
+
+    // std::cout << "経過時間: " << elapsed.count() << " ms" << std::endl;
+    cv::imshow("Main",dstimg);
+    previousTime =  std::chrono::high_resolution_clock::now();
+    deltaTime = 0.0f;
     while(true){
-        int keyI = cv::waitKey(0);
+        currentTime = std::chrono::high_resolution_clock::now();
+        int keyI;
+        if( playing == true){
+            keyI = ProccessVideo(&mainVideo,&srcimg);
+        }
+        else{
+            keyI = cv::waitKey(0);
+        }
         char keyC = (char)keyI;
-        std::cout << keyI << std::endl;
+        // std::cout << keyI << std::endl;
         //ウィンドウが閉じられた時(-1),またはescape(27)が押されたとき
-        if(keyI == -1 || keyI == 27){
+        if(keyI == 27){
             break;
         }
-        if(keyI == 13){
-            std::cout << "enter" << std::endl;
-        }
-        RotateByKeyInput(keyC);
 
-        MakeDstimg(dstimg,rayvector,img);
-        cv::imshow("dst",dstimg);
+        RotateByKeyInput(keyC);
+        OperateVideoByKeyInput(keyC, &mainVideo, &srcimg);
+
+        MakeDstimg(dstimg,rayvector,srcimg);
+        cv::imshow("Main",dstimg);
         
     }
-    
-    
-    // Rotate(0.0f,0.1f,0);
-    // MakeDstimg(dstimg,rayvector,img);
-    // cv::imshow("dst",dstimg);
-    // cv::waitKey(0);
-    
-    // Rotate(0.1f,0.0f,0);
-    // MakeDstimg(dstimg,rayvector,img);
-    // cv::imshow("dst",dstimg);
-    // cv::waitKey(0);
-    // Rotate(0.1f,0.0f,0);
-    // MakeDstimg(dstimg,rayvector,img);
-    // cv::imshow("dst",dstimg);
-    // cv::waitKey(0);
-    // Rotate(0.1f,0.0f,0);
-    // MakeDstimg(dstimg,rayvector,img);
-    // cv::imshow("dst",dstimg);
-    // cv::waitKey(0);
  
     return 0;
 }
-/*
-void InitDstimg(cv::Mat& dstimg, const cv::Mat& rayvector, const cv::Mat& srcimg)
-{
-    const int srcWidth = srcimg.cols;
-    const int srcHeight = srcimg.rows;
-    const int channels = srcimg.channels();
-    for(int dstHIdx = 0; dstHIdx < scHeight; dstHIdx++){
-        for(int dstWIdx = 0; dstWIdx < scWidth; dstWIdx++){
-        
-            int dstIdx = dstHIdx * scWidth * channels + dstWIdx * channels; 
-            // float x = rayvector.data[dstIdx];
-            // float y = rayvector.data[dstIdx + 1];
-            // float z = rayvector.data[dstIdx + 2];
-            float x = rayvector.at<cv::Vec3f>(dstHIdx,dstWIdx)[0];
-            float y = rayvector.at<cv::Vec3f>(dstHIdx,dstWIdx)[1];
-            float z = rayvector.at<cv::Vec3f>(dstHIdx,dstWIdx)[2];
-            //radian
-            float theta = std::acos(y);
-            float phi = x != 0 ? std::atan2(x,z) : 0.0f;
-            
-            int srcWIdx = (int)((pi + phi) / dpi * (srcWidth - 1));
-            int srcHIdx = (int)( theta / pi * (srcHeight - 1));
-            int srcIdx = srcHIdx * srcWidth * channels + srcWIdx * channels;
-
-            dstimg.data[dstIdx] = srcimg.data[srcIdx];
-            dstimg.data[dstIdx + 1] = srcimg.data[srcIdx + 1];
-            dstimg.data[dstIdx + 2] = srcimg.data[srcIdx + 2];
-            // dstimg.at<Pixel>(dstHIdx,dstWIdx) = srcimg.at<Pixel>(srcHIdx,srcWIdx);
-            // dstimg.at<cv::Vec3b>(dsthIdx,dstwIdx)[0] = srcimg.at<cv::Vec3b>(srchIdx,srcwIdx)[0];
-            // dstimg.at<cv::Vec3b>(dsthIdx,dstwIdx)[1] = srcimg.at<cv::Vec3b>(srchIdx,srcwIdx)[1];
-            // dstimg.at<cv::Vec3b>(dsthIdx,dstwIdx)[2] = srcimg.at<cv::Vec3b>(srchIdx,srcwIdx)[2];
-        }
-    }
-}
-*/
