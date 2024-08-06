@@ -67,10 +67,11 @@ const int sliderStartHeight = scHeight - sliderHeight - sliderPaddingHeight;
 
 cv::Rect sliderBaseArea(sliderStartWidth, sliderStartHeight, sliderWidth, sliderHeight);
 cv::Rect sliderMoveArea(sliderStartWidth, sliderStartHeight, 0, sliderHeight);
-
 cv::Scalar sliderColor(50,255,50);
-
 bool sliderDragged = false;
+
+bool uiVisibility = true;
+
 
 //元の全方位画像から普通の透視投影の画像を作る
 void MakeDstimg(cv::Mat& dstimg, const cv::Mat& srcimg)
@@ -311,6 +312,10 @@ void OperateVideoByKeyInput(char key)
 
     case 8://backspace
         StepBackWard();
+        break;
+
+    case 'v':
+        uiVisibility = !uiVisibility;
     
     default:
         break;
@@ -346,6 +351,7 @@ void OperateVideoSwitch(char key)
 
 void DrawTextInfo()
 {
+    if(uiVisibility == false) return;
     std::stringstream ssDim,ssPos;
     ssDim << "dim" << dimension;
     cv::putText(dstimg,ssDim.str(),cv::Point(10,20),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
@@ -355,6 +361,7 @@ void DrawTextInfo()
 
 void DrawSlider()
 {
+    if(uiVisibility == false) return;
     float progressRate = (float)currentframe / (framecount - 1);
     float barlength = sliderWidth * progressRate;
     sliderMoveArea.width = barlength;
@@ -366,6 +373,7 @@ void DrawSlider()
 
 void MouseCallback(int event, int x, int y, int flags, void *userdata)
 {
+    if( uiVisibility == false) return;
     if (event == cv::EVENT_LBUTTONDOWN) {
         if(x >= sliderStartWidth - sliderCollisionPadding && x <= sliderStartWidth + sliderWidth + sliderCollisionPadding &&
            y >= sliderStartHeight - sliderCollisionPadding && y <= sliderStartHeight + sliderHeight + sliderCollisionPadding){
