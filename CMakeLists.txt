@@ -17,7 +17,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 # 実行ファイル名とソース指定（ここではソースと同じ名前の実行ファイルを作ります）
 add_executable( ${SOURCE_CODE} ${SOURCE_CODE}.cpp )
 
-target_compile_options(${SOURCE_CODE} PUBLIC -O3 -Wall)
+target_compile_options(${SOURCE_CODE} PUBLIC -O3 -Wall -std=c++20)
 
 #リンク先のライブラリを指定
 target_link_libraries( ${SOURCE_CODE} ${OpenCV_LIBS} )

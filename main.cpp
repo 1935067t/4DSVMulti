@@ -9,7 +9,6 @@
 namespace fs = std::filesystem;
 
 typedef cv::Point3_<uint8_t> Pixel;
-typedef std::chrono::_V2::system_clock::time_point Time;
 
 const double pi = acos(-1);
 const double dpi = pi * 2;
@@ -40,9 +39,7 @@ int framecount;
 int currentframe;
 float frameInterval;
 float deltaTime;
-std::chrono::duration<float, std::milli> elapsed;
-Time previousTime;
-Time currentTime;
+cv::TickMeter tick;
 
 //4dsv
 cv::Point3i dimension;
@@ -177,10 +174,10 @@ void InitVideo(std::string filename, cv::VideoCapture* video, cv::Mat* img)
 
 int ProccessVideo()
 {
-    currentTime = std::chrono::high_resolution_clock::now();
-    elapsed = currentTime - previousTime;
-    deltaTime += elapsed.count();
-    previousTime = currentTime;
+    tick.stop();
+    deltaTime += tick.getTimeMilli();
+    tick.reset();
+    tick.start();
 
     int key = cv::pollKey();
     if(deltaTime >= frameInterval){
@@ -301,7 +298,14 @@ void OperateVideoByKeyInput(char key)
     {
     case ' '://space
         playing = !playing;
-        previousTime = std::chrono::high_resolution_clock::now();
+        // previousTime = std::chrono::high_resolution_clock::now();
+        if(playing == true){
+            tick.start();
+        }
+        else{
+            tick.stop();
+            tick.reset();
+        }
         deltaTime = 0.0f;
         break;
 
@@ -314,8 +318,17 @@ void OperateVideoByKeyInput(char key)
         StepBackWard();
         break;
 
+    case '0':
+        mainVideo.set(cv::CAP_PROP_POS_FRAMES,0);
+        subVideo.set(cv::CAP_PROP_POS_FRAMES,0);
+        currentframe = 0;
+        mainVideo.read(srcimg);
+        subVideo.read(subSrcimg);
+        break;
+
     case 'v':
         uiVisibility = !uiVisibility;
+        break;
     
     default:
         break;
@@ -373,10 +386,10 @@ void DrawSlider()
 
 void MouseCallback(int event, int x, int y, int flags, void *userdata)
 {
-    if( uiVisibility == false) return;
     if (event == cv::EVENT_LBUTTONDOWN) {
         if(x >= sliderStartWidth - sliderCollisionPadding && x <= sliderStartWidth + sliderWidth + sliderCollisionPadding &&
-           y >= sliderStartHeight - sliderCollisionPadding && y <= sliderStartHeight + sliderHeight + sliderCollisionPadding){
+           y >= sliderStartHeight - sliderCollisionPadding && y <= sliderStartHeight + sliderHeight + sliderCollisionPadding &&
+           uiVisibility == true){
                 playing = false;
                 sliderDragged = true;
                 return;
@@ -446,10 +459,7 @@ int main(int argc, char **argv) {
     cv::imshow("Main",dstimg);
     cv::imshow("Sub",subDstimg);
     cv::setMouseCallback("Main",MouseCallback);
-    previousTime =  std::chrono::high_resolution_clock::now();
-    deltaTime = 0.0f;
     while(true){
-        currentTime = std::chrono::high_resolution_clock::now();
         int keyI;
         if( playing == true){
             keyI = ProccessVideo();
@@ -458,8 +468,7 @@ int main(int argc, char **argv) {
             keyI = cv::waitKey(0);
         }
         char keyC = (char)keyI;
-        // std::cout << keyI << std::endl;
-        //ウィンドウが閉じられた時(-1),またはescape(27)が押されたとき
+        //escape(27)が押されたとき
         if(keyI == 27){
             break;
         }
