@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 #include <cmath>
-#include <chrono>
 
 namespace fs = std::filesystem;
 
@@ -315,6 +314,7 @@ void OperateVideoByKeyInput(char key)
         break;
 
     case 8://backspace
+    case 127:
         StepBackWard();
         break;
 
@@ -322,6 +322,7 @@ void OperateVideoByKeyInput(char key)
         mainVideo.set(cv::CAP_PROP_POS_FRAMES,0);
         subVideo.set(cv::CAP_PROP_POS_FRAMES,0);
         currentframe = 0;
+        reachEnd = false;
         mainVideo.read(srcimg);
         subVideo.read(subSrcimg);
         break;
@@ -468,6 +469,7 @@ int main(int argc, char **argv) {
             keyI = cv::waitKey(0);
         }
         char keyC = (char)keyI;
+
         //escape(27)が押されたとき
         if(keyI == 27){
             break;
