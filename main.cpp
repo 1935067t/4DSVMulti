@@ -360,7 +360,7 @@ void OperateVideoSwitch(char key)
         return;
     }
     ChangeVideoPos(x, y, z);
-    std::cout << "position" << position << std::endl;
+    // std::cout << "position" << position << std::endl;
 }
 
 void DrawTextInfo()
