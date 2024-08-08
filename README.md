@@ -3,7 +3,7 @@ OpenCV, CMakeが必要です.
 macの場合はhomebrewで
 ```bash
 brew install opencv
-brew install CMake
+brew install cmake
 ```
 とすればインストールできます.
 
