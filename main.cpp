@@ -30,6 +30,10 @@ cv::Matx33d yRotateMat(0.0f);
 cv::Matx33d zRotateMat(0.0f);
 cv::Matx33d zyxRotateMat(0.0f);
 
+//マウスドラッグによる回転
+cv::Point2i previousMousePos, currentMousePos , diffMousePos;
+bool shouldMouseRotation = false;
+int rotationCorrection = 100000;//後で（スクリーンサイズ / 2）**2を入れる
 
 //動画
 bool playing = false;
@@ -64,7 +68,7 @@ const int sliderStartHeight = scHeight - sliderHeight - sliderPaddingHeight;
 cv::Rect sliderBaseArea(sliderStartWidth, sliderStartHeight, sliderWidth, sliderHeight);
 cv::Rect sliderMoveArea(sliderStartWidth, sliderStartHeight, 0, sliderHeight);
 cv::Scalar sliderColor(50,255,50);
-bool sliderDragged = false;
+bool isSliderDragged = false;
 
 bool uiVisibility = true;
 
@@ -154,6 +158,24 @@ void StepBackWard()
     currentframe--;
     if(currentframe < 0){
         currentframe = 0;
+    }
+    mainVideo.set(cv::CAP_PROP_POS_FRAMES, currentframe);
+    mainVideo.read(srcimg);
+    subVideo.set(cv::CAP_PROP_POS_FRAMES, currentframe);
+    subVideo.read(subSrcimg);
+}
+
+void SeekFrame(int frame)
+{
+    playing = false;
+    reachEnd = false;
+    currentframe = frame;
+    if(currentframe < 0){
+        currentframe = 0;
+    }
+    else if(currentframe >= framecount - 1){
+        currentframe = framecount - 1;
+        reachEnd = true;
     }
     mainVideo.set(cv::CAP_PROP_POS_FRAMES, currentframe);
     mainVideo.read(srcimg);
@@ -313,18 +335,13 @@ void OperateVideoByKeyInput(char key)
         StepForward();
         break;
 
-    case 8://backspace
-    case 127:
-        StepBackWard();
+    case 8:  //backspace
+    case 127://delete
+        SeekFrame(currentframe - 1);
         break;
 
     case '0':
-        mainVideo.set(cv::CAP_PROP_POS_FRAMES,0);
-        subVideo.set(cv::CAP_PROP_POS_FRAMES,0);
-        currentframe = 0;
-        reachEnd = false;
-        mainVideo.read(srcimg);
-        subVideo.read(subSrcimg);
+        SeekFrame(0);
         break;
 
     case 'v':
@@ -392,54 +409,87 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
            y >= sliderStartHeight - sliderCollisionPadding && y <= sliderStartHeight + sliderHeight + sliderCollisionPadding &&
            uiVisibility == true){
                 playing = false;
-                sliderDragged = true;
-                return;
+                isSliderDragged = true;
         }
+        else
+        {
+            previousMousePos.x = x - scWidth / 2;
+            previousMousePos.y = y - scHeight / 2;
+            shouldMouseRotation = true;
+        }
+
+        return;
     }
-    else if( event == cv::EVENT_LBUTTONUP){
-        if(sliderDragged == true){
+
+    if( event == cv::EVENT_LBUTTONUP){
+        if(isSliderDragged == true){
             x -= sliderStartWidth;
             reachEnd = false;
+            int frame;
             if(x <= 0){
-                currentframe = 0;
+                // currentframe = 0;
+                frame = 0;
             }
             else if( x >= sliderWidth){
-                currentframe = framecount - 1;
+                frame = framecount - 1;
                 reachEnd = true;
             }
             else{
-                currentframe = (framecount - 1) * x / sliderWidth;
+                frame = (framecount - 1) * x / sliderWidth;
             }
-            mainVideo.set(cv::CAP_PROP_POS_FRAMES,currentframe);
-            subVideo.set(cv::CAP_PROP_POS_FRAMES,currentframe);
-            mainVideo.read(srcimg);
-            subVideo.read(subSrcimg);
+            SeekFrame(frame);
             MakeDstimg(dstimg,srcimg);
             MakeDstimg(subDstimg,subSrcimg);
             DrawTextInfo();
             DrawSlider();
             cv::imshow("Main",dstimg);
             cv::imshow("Sub",subDstimg);
-            sliderDragged = false;
         }
+        isSliderDragged = false;
+        shouldMouseRotation = false;
+        return;
     }
-    else if( sliderDragged == true){
-        x -= sliderStartWidth;
-        if(x <= 0){
-            currentframe = 0;
+
+    if(event == cv::EVENT_MOUSEMOVE){
+        if( isSliderDragged == true){
+            x -= sliderStartWidth;
+            if(x <= 0){
+                currentframe = 0;
+            }
+            else if( x >= sliderWidth){
+                currentframe = framecount - 1;
+            }
+            else{
+                currentframe = (framecount - 1) * x / sliderWidth;
+            }
+            MakeDstimg(dstimg,srcimg);
+            MakeDstimg(subDstimg,subSrcimg);
+            DrawTextInfo();
+            DrawSlider();
+            cv::imshow("Main",dstimg);
+            cv::imshow("Sub",subDstimg);
         }
-        else if( x >= sliderWidth){
-            currentframe = framecount - 1;
+        else if(shouldMouseRotation){
+            currentMousePos.x = x - scWidth / 2;
+            currentMousePos.y = y - scHeight / 2;
+            diffMousePos = currentMousePos - previousMousePos;
+
+            float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) / (float)(scWidth * scWidth);
+            float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) / (float)(scHeight * scHeight);
+            float yaw = previousMousePos.cross(currentMousePos) / rotationCorrection;
+
+            Rotate(roll,pitch,yaw);
+            MakeDstimg(dstimg,srcimg);
+            MakeDstimg(subDstimg,subSrcimg);
+            DrawTextInfo();
+            DrawSlider();
+            cv::imshow("Main",dstimg);
+            cv::imshow("Sub",subDstimg);
+
+            previousMousePos.x = currentMousePos.x;
+            previousMousePos.y = currentMousePos.y;
+
         }
-        else{
-            currentframe = (framecount - 1) * x / sliderWidth;
-        }
-        MakeDstimg(dstimg,srcimg);
-        MakeDstimg(subDstimg,subSrcimg);
-        DrawTextInfo();
-        DrawSlider();
-        cv::imshow("Main",dstimg);
-        cv::imshow("Sub",subDstimg);
     }
 }
 
@@ -449,6 +499,13 @@ int main(int argc, char **argv) {
         exit(1);
     }
     ReadVideoInformationFile(argv[1]);
+
+    if(scWidth > scHeight){
+        rotationCorrection = (scWidth / 2) * (scWidth / 2);
+    }
+    else{
+        rotationCorrection = (scHeight / 2) * (scHeight / 2);
+    }
 
     std::cout << srcimg.size << std::endl;
     MakeDstimg(dstimg,srcimg);
