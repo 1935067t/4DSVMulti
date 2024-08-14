@@ -13,7 +13,7 @@ const double pi = acos(-1);
 const double dpi = pi * 2;
 
 //視野角
-const float fov = 80.0f;
+float fov = 70.0f;
 //デフォルトスクリーンサイズ
 int scHeight = 600;
 int scWidth = 600;
@@ -151,20 +151,6 @@ void StepForward()
     return;
 }
 
-void StepBackWard()
-{
-    playing = false;
-    reachEnd = false;
-    currentframe--;
-    if(currentframe < 0){
-        currentframe = 0;
-    }
-    mainVideo.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-    mainVideo.read(srcimg);
-    subVideo.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-    subVideo.read(subSrcimg);
-}
-
 void SeekFrame(int frame)
 {
     playing = false;
@@ -201,6 +187,21 @@ int ProccessVideo()
     tick.start();
 
     int key = cv::pollKey();
+
+    /*waitkeyを使うやり方*/
+    // int waitTime;
+    // if( deltaTime < frameInterval){
+    //     waitTime = frameInterval - deltaTime;
+    // }
+    // else{
+    //     waitTime = 1;
+    // }
+    // int key = cv::waitKey(waitTime);
+    // tick.stop();
+    // deltaTime += tick.getTimeMilli();
+    // tick.reset();
+    // tick.start();
+    
     if(deltaTime >= frameInterval){
         deltaTime -= frameInterval;
         StepForward();
@@ -319,7 +320,6 @@ void OperateVideoByKeyInput(char key)
     {
     case ' '://space
         playing = !playing;
-        // previousTime = std::chrono::high_resolution_clock::now();
         if(playing == true){
             tick.start();
         }
@@ -377,9 +377,9 @@ void OperateVideoSwitch(char key)
         return;
     }
     ChangeVideoPos(x, y, z);
-    // std::cout << "position" << position << std::endl;
 }
 
+//画面左上に情報を表示
 void DrawTextInfo()
 {
     if(uiVisibility == false) return;
@@ -390,6 +390,7 @@ void DrawTextInfo()
     cv::putText(dstimg,ssPos.str(),cv::Point(10,40),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
 }
 
+//画面右下にスライダーを表示
 void DrawSlider()
 {
     if(uiVisibility == false) return;
@@ -405,23 +406,25 @@ void DrawSlider()
 void MouseCallback(int event, int x, int y, int flags, void *userdata)
 {
     if (event == cv::EVENT_LBUTTONDOWN) {
+        //スライダー操作開始
         if(x >= sliderStartWidth - sliderCollisionPadding && x <= sliderStartWidth + sliderWidth + sliderCollisionPadding &&
            y >= sliderStartHeight - sliderCollisionPadding && y <= sliderStartHeight + sliderHeight + sliderCollisionPadding &&
            uiVisibility == true){
                 playing = false;
                 isSliderDragged = true;
         }
+        //回転操作開始
         else
         {
             previousMousePos.x = x - scWidth / 2;
             previousMousePos.y = y - scHeight / 2;
             shouldMouseRotation = true;
         }
-
         return;
     }
 
     if( event == cv::EVENT_LBUTTONUP){
+        //スライダーの位置に合わせて動画読み込み
         if(isSliderDragged == true){
             x -= sliderStartWidth;
             reachEnd = false;
@@ -451,6 +454,7 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
     }
 
     if(event == cv::EVENT_MOUSEMOVE){
+        //マウスの位置に合わせてスライダーUIの表示を変える（動画は読み込まない）
         if( isSliderDragged == true){
             x -= sliderStartWidth;
             if(x <= 0){
@@ -469,6 +473,9 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             cv::imshow("Main",dstimg);
             cv::imshow("Sub",subDstimg);
         }
+        //画面中央から離れるほど画面の奥方向に対する回転を強くする
+        //x軸から離れるほど左右方向の視線変更を小さくする
+        //y軸から離れるほど上下方向の視線変更を小さくする
         else if(shouldMouseRotation){
             currentMousePos.x = x - scWidth / 2;
             currentMousePos.y = y - scHeight / 2;
@@ -488,12 +495,30 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
 
             previousMousePos.x = currentMousePos.x;
             previousMousePos.y = currentMousePos.y;
-
         }
+        return;
+    }
+
+    if(event == cv::EVENT_MOUSEWHEEL){
+        if(flags > 0){
+            fov += 5.0f;
+        }
+        else{
+            fov -= 5.0f;
+        }
+        fov = std::clamp(fov, 30.0f, 90.0f);
+
+        MakeDstimg(dstimg,srcimg);
+        MakeDstimg(subDstimg,subSrcimg);
+        DrawTextInfo();
+        DrawSlider();
+        cv::imshow("Main",dstimg);
+        cv::imshow("Sub",subDstimg);
     }
 }
 
 int main(int argc, char **argv) {
+    std::cout << cv::getVersionString() << std::endl;
     if(argc == 1){
         std::cout << "please input filename";
         exit(1);
@@ -526,9 +551,8 @@ int main(int argc, char **argv) {
             keyI = cv::waitKey(0);
         }
         char keyC = (char)keyI;
-
         //escape(27)が押されたとき
-        if(keyI == 27){
+        if(keyI == 27 || cv::getWindowProperty("Main", 1) == -1 || cv::getWindowProperty("Sub", 1) == -1){
             break;
         }
 
