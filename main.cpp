@@ -498,7 +498,9 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
         }
         return;
     }
-
+    
+    //マウスのホイールを動かすとズームイン、ズームアウトする
+    //Windows版のみ？
     if(event == cv::EVENT_MOUSEWHEEL){
         if(flags > 0){
             fov += 5.0f;
