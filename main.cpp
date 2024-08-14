@@ -13,7 +13,10 @@ const double pi = acos(-1);
 const double dpi = pi * 2;
 
 //視野角
-float fov = 70.0f;
+float fovy = 70.0f;
+const float maxfovy = 90.0f;
+const float minfovy = 25.0f;
+
 //デフォルトスクリーンサイズ
 int scHeight = 600;
 int scWidth = 600;
@@ -85,8 +88,8 @@ void MakeDstimg(cv::Mat& dstimg, const cv::Mat& srcimg)
 
     cv::Vec3f lefttop, righttop, leftbottom, rightbottom;
     float aspect = (float)dstWidth / (float)dstHeight;
-    float correctionX = std::sin((aspect * fov / 2.0 * pi) / 180.0);
-    float correctionY = std::sin((fov / 2.0 * pi) / 180.0);
+    float correctionX = std::sin((aspect * fovy / 2.0 * pi) / 180.0);
+    float correctionY = std::sin((fovy / 2.0 * pi) / 180.0);
 
     lefttop = -xAxis * correctionX + yAxis * correctionY + zAxis;
     righttop = xAxis * correctionX + yAxis * correctionY + zAxis;
@@ -347,6 +350,21 @@ void OperateVideoByKeyInput(char key)
     case 'v':
         uiVisibility = !uiVisibility;
         break;
+
+    //ズームイン、ズームアウト
+    case '+':
+        fovy -= 5.0f;
+        if(fovy < minfovy){
+            fovy = minfovy;
+        }
+        break;
+
+    case '-':
+        fovy += 5.0f;
+        if(fovy > maxfovy){
+            fovy = maxfovy;
+        }
+        break;
     
     default:
         break;
@@ -498,17 +516,17 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
         }
         return;
     }
-    
+
     //マウスのホイールを動かすとズームイン、ズームアウトする
     //Windows版のみ？
     if(event == cv::EVENT_MOUSEWHEEL){
         if(flags > 0){
-            fov += 5.0f;
+            fovy += 5.0f;
         }
         else{
-            fov -= 5.0f;
+            fovy -= 5.0f;
         }
-        fov = std::clamp(fov, 30.0f, 90.0f);
+        fovy = std::clamp(fovy, minfovy, maxfovy);
 
         MakeDstimg(dstimg,srcimg);
         MakeDstimg(subDstimg,subSrcimg);
