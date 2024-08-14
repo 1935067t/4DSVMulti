@@ -16,18 +16,18 @@ const float minfovy = 30.0f;
 int scHeight = 500;
 int scWidth = 500;
 //回転軸
-cv::Vec3d xAxis(1.0f,0.0f,0.0f);
-cv::Vec3d yAxis(0.0f,1.0f,0.0f);
-cv::Vec3d zAxis(0.0f,0.0f,1.0f);
+cv::Vec3d xAxis(1.0,0.0,0.0);
+cv::Vec3d yAxis(0.0,1.0,0.0);
+cv::Vec3d zAxis(0.0,0.0,1.0);
 
 const float rotationAngle = 0.05f;
 
 
 //回転行列
-cv::Matx33d xRotateMat(0.0f);
-cv::Matx33d yRotateMat(0.0f);
-cv::Matx33d zRotateMat(0.0f);
-cv::Matx33d zyxRotateMat(0.0f);
+cv::Matx33d xRotateMat(0.0);
+cv::Matx33d yRotateMat(0.0);
+cv::Matx33d zRotateMat(0.0);
+cv::Matx33d zyxRotateMat(0.0);
 
 //マウス回転用変数
 cv::Point2i previousMousePos, currentMousePos , diffMousePos;
@@ -105,6 +105,13 @@ void Zoom(float degree)
     fovy = std::clamp(fovy, minfovy, maxfovy);
 }
 
+void Reset()
+{
+    xAxis = cv::Vec3d(1.0,0.0,0.0);
+    yAxis = cv::Vec3d(0.0,1.0,0.0);
+    zAxis = cv::Vec3d(0.0,0.0,1.0);
+}
+
 void OperateByKey(char key)
 {
     switch (key)
@@ -128,6 +135,10 @@ void OperateByKey(char key)
         Zoom(-5.0f);break;
     case '-':
         Zoom(+5.0f);break;
+
+    //視線方向をリセット
+    case 'r':
+        Reset();break;
     
     default:
         break;
