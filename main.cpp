@@ -217,13 +217,11 @@ void ReadVideoInformationFile(char * filename)
     std::ifstream config(filename);
     std::string directorypath;
     std::string extension;
-    int framerate;
 
     config >> directorypath;
     config >> extension;
     config >> dimension.x >> dimension.y >> dimension.z;
     config >> position.x >> position.y >> position.z;
-    config >> framerate;
 
     if(fs::exists(directorypath) == false){
         printf("video directory not Found\n");
