@@ -5,6 +5,8 @@
 #include <vector>
 #include <cmath>
 
+#include "Slider.hpp"
+
 namespace fs = std::filesystem;
 
 typedef cv::Point3_<uint8_t> Pixel;
@@ -65,10 +67,7 @@ const int sliderCollisionPadding = 10;//スライダーの操作判定を見た�
 const int sliderStartWidth = scWidth - sliderWidth - sliderPaddingWidth;
 const int sliderStartHeight = scHeight - sliderHeight - sliderPaddingHeight;
 
-cv::Rect sliderBaseArea(sliderStartWidth, sliderStartHeight, sliderWidth, sliderHeight);
-cv::Rect sliderMoveArea(sliderStartWidth, sliderStartHeight, 0, sliderHeight);
-cv::Scalar sliderColor(50,255,50);
-bool isSliderDragged = false;
+Slider slider;
 
 bool uiVisibility = true;
 
@@ -365,28 +364,15 @@ void DrawTextInfo()
     cv::putText(dstimg,ssPos.str(),cv::Point(10,40),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
 }
 
-//画面右下にスライダーを表示
-void DrawSlider()
-{
-    if(uiVisibility == false) return;
-    float progressRate = (float)currentframe / (framecount - 1);
-    float barlength = sliderWidth * progressRate;
-    sliderMoveArea.width = barlength;
-    cv::rectangle(dstimg,sliderBaseArea,fontcolor,-1);
-    cv::rectangle(dstimg,sliderMoveArea,sliderColor,-1);
-    cv::putText(dstimg,std::to_string(currentframe),cv::Point(sliderStartWidth, sliderStartHeight - 10),
-                cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
-}
-
 void MouseCallback(int event, int x, int y, int flags, void *userdata)
 {
     if (event == cv::EVENT_LBUTTONDOWN) {
         //スライダー操作開始
-        if(x >= sliderStartWidth - sliderCollisionPadding && x <= sliderStartWidth + sliderWidth + sliderCollisionPadding &&
-           y >= sliderStartHeight - sliderCollisionPadding && y <= sliderStartHeight + sliderHeight + sliderCollisionPadding &&
-           uiVisibility == true){
-                playing = false;
-                isSliderDragged = true;
+        if(uiVisibility == true){
+            slider.JudgeDrag(x, y);
+        }
+        if(slider.Dragged() == true){
+            playing = false;
         }
         //回転操作開始
         else
@@ -400,48 +386,30 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
 
     if( event == cv::EVENT_LBUTTONUP){
         //スライダーの位置に合わせて動画読み込み
-        if(isSliderDragged == true){
-            x -= sliderStartWidth;
+        if(slider.Dragged() == true){
             reachEnd = false;
-            int frame;
-            if(x <= 0){
-                // currentframe = 0;
-                frame = 0;
-            }
-            else if( x >= sliderWidth){
-                frame = framecount - 1;
-                reachEnd = true;
-            }
-            else{
-                frame = (framecount - 1) * x / sliderWidth;
-            }
+            slider.MouseDrag(x);
+            int frame = slider.GetCount();
+            
             SeekFrame(frame);
             MakeDstimg(dstimg,srcimg);
             DrawTextInfo();
-            DrawSlider();
+            slider.Draw(dstimg,frame);
             cv::imshow("Main",dstimg);
         }
-        isSliderDragged = false;
+        slider.ReleaseDrag();
         shouldMouseRotation = false;
         return;
     }
 
     if(event == cv::EVENT_MOUSEMOVE){
         //マウスの位置に合わせてスライダーUIの表示を変える（動画は読み込まない）
-        if( isSliderDragged == true){
-            x -= sliderStartWidth;
-            if(x <= 0){
-                currentframe = 0;
-            }
-            else if( x >= sliderWidth){
-                currentframe = framecount - 1;
-            }
-            else{
-                currentframe = (framecount - 1) * x / sliderWidth;
-            }
+        if( slider.Dragged() == true){
+            slider.MouseDrag(x);
+            currentframe = slider.GetCount();
             MakeDstimg(dstimg,srcimg);
             DrawTextInfo();
-            DrawSlider();
+            slider.Draw(dstimg,currentframe);
             cv::imshow("Main",dstimg);
         }
         //画面中央から離れるほど画面の奥方向に対する回転を強くする
@@ -459,7 +427,7 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             Rotate(roll,pitch,yaw);
             MakeDstimg(dstimg,srcimg);
             DrawTextInfo();
-            DrawSlider();
+            slider.Draw(dstimg,currentframe);
             cv::imshow("Main",dstimg);
 
             previousMousePos.x = currentMousePos.x;
@@ -481,7 +449,7 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
 
         MakeDstimg(dstimg,srcimg);
         DrawTextInfo();
-        DrawSlider();
+        slider.Draw(dstimg,currentframe);
         cv::imshow("Main",dstimg);
     }
 }
@@ -493,6 +461,8 @@ int main(int argc, char **argv) {
         exit(1);
     }
     ReadVideoInformationFile(argv[1]);
+    slider.SetShape(cv::Point2i(sliderStartWidth,sliderStartHeight),cv::Size2i(sliderWidth,sliderHeight));
+    slider.SetTotalCount(framecount);
 
     if(scWidth > scHeight){
         rotationCorrection = (scWidth / 2) * (scWidth / 2);
@@ -504,7 +474,7 @@ int main(int argc, char **argv) {
     std::cout << srcimg.size << std::endl;
     MakeDstimg(dstimg,srcimg);
     DrawTextInfo();
-    DrawSlider();
+    slider.Draw(dstimg,0);
     cv::namedWindow("Main");
     cv::imshow("Main",dstimg);
     cv::setMouseCallback("Main",MouseCallback);
@@ -528,7 +498,7 @@ int main(int argc, char **argv) {
 
         MakeDstimg(dstimg,srcimg);
         DrawTextInfo();
-        DrawSlider();
+        slider.Draw(dstimg,currentframe);
         cv::imshow("Main",dstimg);
     }
  
