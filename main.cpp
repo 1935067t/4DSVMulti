@@ -437,7 +437,7 @@ int main(int argc, char **argv) {
         }
         char keyC = (char)keyI;
         //escape(27)が押されたとき
-        if(keyI == 27 || cv::getWindowProperty("Main", 1) == -1){
+        if(keyI == 27){
             break;
         }
 
