@@ -11,7 +11,7 @@ project( ${SOURCE_CODE} )
 # OpenCVのパッケージを探す
 find_package( OpenCV REQUIRED )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -std=c++20")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -std=c++20")
 
 #ヘッダファイルのパスを指定
 include_directories( ${OpenCV_INCLUDE_DIRS} )
@@ -19,7 +19,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 # 実行ファイル名とソース指定（ここではソースと同じ名前の実行ファイルを作ります）
 add_executable( ${SOURCE_CODE} ${SOURCE_CODE}.cpp )
 
-# target_compile_options(${SOURCE_CODE} PUBLIC -O3 -Wall -std=c++20)
+target_compile_options(${SOURCE_CODE} PUBLIC -O3 -DNDEBUG -std=c++20)
 
 #リンク先のライブラリを指定
 target_link_libraries( ${SOURCE_CODE} ${OpenCV_LIBS} )
