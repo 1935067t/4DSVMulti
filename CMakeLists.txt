@@ -26,5 +26,5 @@ add_executable( ${SOURCE_CODE} ${SOURCE_CODE}.cpp )
 #リンク先のライブラリを指定
 target_link_libraries(${SOURCE_CODE} ${OpenCV_LIBS})
 
-message(STATUS  "VAR_STR=${OpenCV_LIBS}")
+# message(STATUS  "VAR_STR=${OpenCV_LIBS}")
 # message(STATUS  "VAR_STR=${OpenCV_INCLUDE_DIRS}")
