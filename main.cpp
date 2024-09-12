@@ -50,6 +50,7 @@ cv::TickMeter tick;
 //4dsv
 cv::Point3i dimension;
 cv::Point3i position;
+int visCount, visNum; //可視化手法数、何番目か
 std::vector<std::string> filepathes;
 
 cv::VideoCapture video;
@@ -191,21 +192,25 @@ int ProccessVideo()
     return key;
 }
 
-void ChangeVideoPos(int x, int y, int z)
+void ChangeVideoPos(int x, int y, int z, int vis)
 {
     int movedX = position.x + x;
     int movedY = position.y + y;
     int movedZ = position.z + z;
+    int movedV = visNum + vis;
 
     if(movedX < 0 || movedX >= dimension.x ||
        movedY < 0 || movedY >= dimension.y ||
-       movedZ < 0 || movedZ >= dimension.z)
+       movedZ < 0 || movedZ >= dimension.z ||
+       movedV < 0 || movedV >= visCount)
     {return;}
 
     position.x = movedX;
     position.y = movedY;
     position.z = movedZ;
-    int fileIdx = position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
+    visNum     = movedV;
+    int fileIdx = visNum * dimension.x * dimension.y * dimension.z +
+                  position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
     video.open(filepathes[fileIdx]);
     video.set(cv::CAP_PROP_POS_FRAMES, currentframe);
     video.read(srcimg);
@@ -219,8 +224,8 @@ void ReadVideoInformationFile(char * filename)
 
     config >> directorypath;
     config >> extension;
-    config >> dimension.x >> dimension.y >> dimension.z;
-    config >> position.x >> position.y >> position.z;
+    config >> dimension.x >> dimension.y >> dimension.z >> visCount;
+    config >> position.x >> position.y >> position.z >> visNum;
 
     if(fs::exists(directorypath) == false){
         printf("video directory not Found\n");
@@ -228,7 +233,8 @@ void ReadVideoInformationFile(char * filename)
     }
     
     //extensionが一致するファイルのパスを取得する
-    fs::directory_iterator iter(directorypath), end;
+    // fs::directory_iterator iter(directorypath), end;
+    fs::recursive_directory_iterator iter(directorypath), end;
     std::error_code errCode;
     for(;iter != end; iter.increment(errCode)){
         fs::directory_entry entry = *iter;
@@ -237,15 +243,16 @@ void ReadVideoInformationFile(char * filename)
             filepathes.push_back(entry.path().string());
         }
     }
+    std::sort(filepathes.begin(),filepathes.end());
 
-    if(dimension.x * dimension.y * dimension.z != (int)filepathes.size()){
+    if(dimension.x * dimension.y * dimension.z * visCount != (int)filepathes.size()){
         std::cout << "dimension is strange" << std::endl;
         exit(1);
     }
 
-    std::sort(filepathes.begin(),filepathes.end());
 
-    int fileIdx = position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
+    int fileIdx = visNum * dimension.x * dimension.y * dimension.z +
+                  position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
     InitVideo(filepathes[fileIdx],&video,&srcimg);
 
     dstimg = cv::Mat(cv::Size(scWidth, scHeight), srcimg.type(), cv::Scalar::all(0));
@@ -332,6 +339,7 @@ void OperateVideoSwitch(char key)
     int x = 0;
     int y = 0;
     int z = 0;
+    int vis = 0;
     switch (key)
     {
     case 'h':
@@ -346,11 +354,15 @@ void OperateVideoSwitch(char key)
         z = -1; break;
     case '.':
         z = 1;  break;
+    case 'n':
+        vis = -1; break;
+    case 'm':
+        vis = 1; break;
 
     default:
         return;
     }
-    ChangeVideoPos(x, y, z);
+    ChangeVideoPos(x, y, z, vis);
 }
 
 //画面左上に情報を表示
@@ -358,10 +370,12 @@ void DrawTextInfo()
 {
     if(uiVisibility == false) return;
     std::stringstream ssDim,ssPos;
+    std::string visnumStr = "vis" + std::to_string(visNum);
     ssDim << "dim" << dimension;
     cv::putText(dstimg,ssDim.str(),cv::Point(10,20),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
     ssPos << "pos" << position;
     cv::putText(dstimg,ssPos.str(),cv::Point(10,40),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
+    cv::putText(dstimg,visnumStr,cv::Point(10,60),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
 }
 
 void MouseCallback(int event, int x, int y, int flags, void *userdata)
