@@ -25,7 +25,7 @@ cd build
 #cmakeコマンドでMakeFileを作る
 cmake ..
 
-#cmakeが成功したらmakeで実行ファイルを作る. mainというバイナリファイルが作られる
+#cmakeが成功したらmakeで実行ファイルを作る. 4dsvViewerというバイナリファイルが作られる
 make
 ```
 
@@ -65,11 +65,11 @@ Delete    :　動画を１フレーム戻す
 0         :  動画を最初のフレームに戻す
 
 #4DSV操作(動画の切り替え)
-H , L     :　X方向に-1,か +1 positionを変える
+I , i     :　X方向に-1,か +1 positionを変える
 
-J , K     :　Y方向に-1,か +1 positionを変える
+J , j     :　Y方向に-1,か +1 positionを変える
 
-"," , "." :　Z方向に-1,か +1 positionを変える
+K , k     :　Z方向に-1,か +1 positionを変える
 
 #それ以外
 Escape    :　アプリ終了
