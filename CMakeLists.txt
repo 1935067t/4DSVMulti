@@ -1,5 +1,5 @@
 set(SOURCE_CODE main CACHE NAME "Target object name")
-set(EXECUTABLE_NAME 4dsv_vis_change)
+set(EXECUTABLE_NAME 4dsvViewer_vis_change)
 # CMakeの最低バージョンを記述
 cmake_minimum_required(VERSION 3.3)
 

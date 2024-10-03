@@ -463,7 +463,7 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
 
         MakeDstimg(dstimg,srcimg);
         DrawTextInfo();
-        slider.Draw(dstimg,currentframe);
+        if(uiVisibility) slider.Draw(dstimg,currentframe);
         cv::imshow("Main",dstimg);
     }
 }
