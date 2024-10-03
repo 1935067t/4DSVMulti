@@ -25,7 +25,7 @@ cd build
 #cmakeコマンドでMakeFileを作る
 cmake ..
 
-#cmakeが成功したらmakeで実行ファイルを作る. mainというバイナリファイルが作られる
+#cmakeが成功したらmakeで実行ファイルを作る. OmniImageViewerというバイナリファイルが作られる
 make
 ```
 
