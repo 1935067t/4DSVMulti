@@ -378,17 +378,17 @@ void OperateVideoSwitch(char key)
     int z = 0;
     switch (key)
     {
-    case 'h':
+    case 'I':
         x = -1; break;
-    case 'l':
+    case 'i':
         x = 1;  break;
-    case 'j':
+    case 'J':
         y = -1; break;
-    case 'k':
+    case 'j':
         y = 1;  break;
-    case ',':
+    case 'K':
         z = -1; break;
-    case '.':
+    case 'k':
         z = 1;  break;
 
     default:

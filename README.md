@@ -1,3 +1,10 @@
+## 各ブランチの違い
+main            : ウィンドウを2枚出すもの
+4dsv            : 通常の4次元ストリートビュー用のもの（ウィンドウ1枚）
+4dsv_vis_change : 3次元のカメラ切り替えに加えて可視化手法の切り替えも行うもの
+image           : １つの全方位画像を見るためのもの
+video           : １つの全方位動画を見るためのもの
+
 ## 準備
 OpenCV, CMakeが必要です.  
 macの場合はhomebrewで
@@ -25,7 +32,7 @@ cd build
 #cmakeコマンドでMakeFileを作る
 cmake ..
 
-#cmakeが成功したらmakeで実行ファイルを作る. mainというバイナリファイルが作られる
+#cmakeが成功したらmakeで実行ファイルを作る. 4dsvViewer_MultiWindowというバイナリファイルが作られる
 make
 ```
 
@@ -67,11 +74,11 @@ Delete    :　動画を１フレーム戻す
 0         :  動画を最初のフレームに戻す
 
 #4DSV操作(動画の切り替え)
-H , L     :　X方向に-1,か +1 positionを変える
+I , i     :　X方向に-1,か +1 positionを変える
 
-J , K     :　Y方向に-1,か +1 positionを変える
+J , j     :　Y方向に-1,か +1 positionを変える
 
-"," , "." :　Z方向に-1,か +1 positionを変える
+K , k     :　Z方向に-1,か +1 positionを変える
 
 #それ以外
 Escape    :　アプリ終了
