@@ -24,14 +24,14 @@ int scHeight = 600;
 int scWidth = 600;
 
 //回転軸
-cv::Vec3d xAxis(1.0f,0.0f,0.0f);
-cv::Vec3d yAxis(0.0f,1.0f,0.0f);
-cv::Vec3d zAxis(0.0f,0.0f,1.0f);
+cv::Vec3d xAxis(1.0,0.0,0.0);
+cv::Vec3d yAxis(0.0,1.0,0.0);
+cv::Vec3d zAxis(0.0,0.0,1.0);
 //回転行列
-cv::Matx33d xRotateMat(0.0f);
-cv::Matx33d yRotateMat(0.0f);
-cv::Matx33d zRotateMat(0.0f);
-cv::Matx33d zyxRotateMat(0.0f);
+cv::Matx33d xRotateMat(0.0);
+cv::Matx33d yRotateMat(0.0);
+cv::Matx33d zRotateMat(0.0);
+cv::Matx33d zyxRotateMat(0.0);
 
 //マウスドラッグによる回転
 cv::Point2i previousMousePos, currentMousePos , diffMousePos;

@@ -3,10 +3,10 @@
 ### 実行&使い方
 実行時にファイルパスを指定します.　オプションでウィンドウサイズを指定することもできます。
 ```bash
-./main filepath
+./OmniVideo filepath
 
 #ウィンドウサイズを指定する場合
-./main filepath window_width window_height
+./OmniVideo filepath window_width window_height
 ```
 動画の再生・停止、視線方向の変更などはキーボード操作で行います.操作方法は以下の通りです
 

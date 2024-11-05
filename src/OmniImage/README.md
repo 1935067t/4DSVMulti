@@ -2,10 +2,10 @@
 実行時に引数として読み込むファイルやウィンドウサイズを指定します
 ```bash
 #ウィンドウサイズを指定しない場合
-./main filename
+./OmniImage filename
 
 #ウィンドウサイズを指定する場合
-./main filename window_width window_height
+./OmniImage filename window_width window_height
 ```
 回転操作などはキーボード操作で行います.操作方法は以下の通りです
 
