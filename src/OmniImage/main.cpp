@@ -68,8 +68,8 @@ void MakeDstimg()
         float theta = std::acos(coord.val[1]);
         float phi = coord.val[0] != 0 ? std::atan2(coord.val[0],coord.val[2]) : 0.0f;
             
-        int srcWIdx = (int)((pi + phi) / dpi * (srcWidth - 1));
-        int srcHIdx = (int)( theta / pi * (srcHeight - 1));
+        int srcWIdx = round((pi + phi) / dpi * (srcWidth - 1));
+        int srcHIdx = round( theta / pi * (srcHeight - 1));
 
         int srcIdx = srcHIdx * srcWidth * channels + srcWIdx * channels;
         pixel.x = srcimg.data[srcIdx];

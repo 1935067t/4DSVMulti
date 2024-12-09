@@ -22,6 +22,7 @@ add_executable( OmniImage src/OmniImage/main.cpp )
 add_executable( OmniVideo src/OmniVideo/main.cpp )
 add_executable( 4DSV src/4DSV/main.cpp )
 add_executable( 4DSVVisChange src/4DSVVisChange/main.cpp )
+add_executable( 4DSVResChange src/4DSVResChange/main.cpp )
 add_executable( 4DSVMulti src/4DSVMulti/main.cpp )
 
 #c++20でコンパイル
@@ -29,6 +30,7 @@ target_compile_features( OmniImage PUBLIC cxx_std_20)
 target_compile_features( OmniVideo PUBLIC cxx_std_20)
 target_compile_features( 4DSV PUBLIC cxx_std_20)
 target_compile_features( 4DSVVisChange PUBLIC cxx_std_20)
+target_compile_features( 4DSVResChange PUBLIC cxx_std_20)
 target_compile_features( 4DSVMulti PUBLIC cxx_std_20)
 
 #リンク先のライブラリを指定
@@ -36,6 +38,7 @@ target_link_libraries(OmniImage ${OpenCV_LIBS} )
 target_link_libraries(OmniVideo ${OpenCV_LIBS} )
 target_link_libraries(4DSV ${OpenCV_LIBS} )
 target_link_libraries(4DSVVisChange ${OpenCV_LIBS} )
+target_link_libraries(4DSVResChange ${OpenCV_LIBS} )
 target_link_libraries(4DSVMulti ${OpenCV_LIBS} )
 
 #message(STATUS "コンパイルオプション: ${CMAKE_CXX_FLAGS}")
