@@ -175,7 +175,7 @@ void InitVideo(std::string filename, cv::VideoCapture* video, cv::Mat* img)
     video->read(*img);
 }
 
-int ProccessVideo()
+int ProcessVideo()
 {
     tick.stop();
     deltaTime += tick.getTimeMilli();
@@ -211,7 +211,7 @@ void ChangeVideoPos(int x, int y, int z)
     video.read(srcimg);
 }
 
-void ReadVideoInformationFile(char * filename)
+void Read4DSVConfig(char * filename)
 {
     std::ifstream config(filename);
     std::string directorypath;
@@ -460,7 +460,7 @@ int main(int argc, char **argv) {
         std::cout << "please input filename";
         exit(1);
     }
-    ReadVideoInformationFile(argv[1]);
+    Read4DSVConfig(argv[1]);
     slider.SetShape(cv::Point2i(sliderStartWidth,sliderStartHeight),cv::Size2i(sliderWidth,sliderHeight));
     slider.SetTotalCount(framecount);
 
@@ -481,7 +481,7 @@ int main(int argc, char **argv) {
     while(true){
         int keyI;
         if( playing == true){
-            keyI = ProccessVideo();
+            keyI = ProcessVideo();
         }
         else{
             keyI = cv::waitKey(0);

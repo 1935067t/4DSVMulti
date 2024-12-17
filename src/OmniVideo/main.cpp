@@ -5,6 +5,8 @@
 #include <vector>
 #include <cmath>
 
+#include "../common/video.hpp"
+
 namespace fs = std::filesystem;
 
 typedef cv::Point3_<uint8_t> Pixel;
@@ -39,15 +41,16 @@ bool shouldMouseRotation = false;
 int rotationCorrection = 100000;//後で（スクリーンサイズ / 2）**2を入れる
 
 //動画
-bool playing = false;
-bool reachEnd = false;
-int framecount;
-int currentframe;
-float frameInterval;
-float deltaTime;
-cv::TickMeter tick;
+// bool playing = false;
+// bool reachEnd = false;
+// int framecount;
+// int currentframe;
+// float frameInterval;
+// float deltaTime;
+// cv::TickMeter tick;
 
-cv::VideoCapture video;
+// cv::VideoCapture video;
+Video video;
 cv::Mat srcimg;
 cv::Mat dstimg;
 
@@ -136,19 +139,19 @@ void Rotate(float roll, float pitch, float yaw)
     yAxis = cv::normalize(yAxis);
 }
 
-void StepForward()
-{
-    if(reachEnd){
-        playing = false;
-        return;
-    }
-    video.read(srcimg);
-    currentframe++;
-    if(currentframe >= framecount - 1){
-        reachEnd = true;
-    }
-    return;
-}
+// void StepForward()
+// {
+//     if(reachEnd){
+//         playing = false;
+//         return;
+//     }
+//     video.read(srcimg);
+//     currentframe++;
+//     if(currentframe >= framecount - 1){
+//         reachEnd = true;
+//     }
+//     return;
+// }
 
 void Zoom(float angle)
 {
@@ -156,31 +159,31 @@ void Zoom(float angle)
     fovy = std::clamp(fovy, minfovy, maxfovy);
 }
 
-void SeekFrame(int frame)
-{
-    playing = false;
-    reachEnd = false;
-    currentframe = frame;
-    if(currentframe < 0){
-        currentframe = 0;
-    }
-    else if(currentframe >= framecount - 1){
-        currentframe = framecount - 1;
-        reachEnd = true;
-    }
-    video.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-    video.read(srcimg);
-}
+// void SeekFrame(int frame)
+// {
+//     playing = false;
+//     reachEnd = false;
+//     currentframe = frame;
+//     if(currentframe < 0){
+//         currentframe = 0;
+//     }
+//     else if(currentframe >= framecount - 1){
+//         currentframe = framecount - 1;
+//         reachEnd = true;
+//     }
+//     video.set(cv::CAP_PROP_POS_FRAMES, currentframe);
+//     video.read(srcimg);
+// }
 
-void InitVideo(std::string filename)
-{
-    video.open(filename);
-    framecount = video.get(cv::CAP_PROP_FRAME_COUNT);
-    float framerate = video.get(cv::CAP_PROP_FPS);
-    frameInterval = 1000.0f / framerate;
-    currentframe = 0;
-    video.read(srcimg);
-}
+// void InitVideo(std::string filename)
+// {
+//     video.open(filename);
+//     framecount = video.get(cv::CAP_PROP_FRAME_COUNT);
+//     float framerate = video.get(cv::CAP_PROP_FPS);
+//     frameInterval = 1000.0f / framerate;
+//     currentframe = 0;
+//     video.read(srcimg);
+// }
 
 void InitSlider()
 {
@@ -196,21 +199,21 @@ void InitSlider()
     sliderMoveArea = cv::Rect(sliderStartWidth, sliderStartHeight, 0, sliderHeight);
 }
 
-int ProccessVideo()
-{
-    tick.stop();
-    deltaTime += tick.getTimeMilli();
-    tick.reset();
-    tick.start();
+// int ProcessVideo()
+// {
+//     tick.stop();
+//     deltaTime += tick.getTimeMilli();
+//     tick.reset();
+//     tick.start();
 
-    int key = cv::pollKey();
+//     int key = cv::pollKey();
     
-    if(deltaTime >= frameInterval){
-        deltaTime -= frameInterval;
-        StepForward();
-    }
-    return key;
-}
+//     if(deltaTime >= frameInterval){
+//         deltaTime -= frameInterval;
+//         StepForward();
+//     }
+//     return key;
+// }
 
 void OperateByKey(char key)
 {
@@ -239,29 +242,32 @@ void OperateVideoByKeyInput(char key)
     switch (key)
     {
     case ' '://space
-        playing = !playing;
-        if(playing == true){
-            tick.start();
-        }
-        else{
-            tick.stop();
-            tick.reset();
-        }
-        deltaTime = 0.0f;
+        // playing = !playing;
+        // if(playing == true){
+        //     tick.start();
+        // }
+        // else{
+        //     tick.stop();
+        //     tick.reset();
+        // }
+        // deltaTime = 0.0f;
+        video.SwitchPlaying();
         break;
 
     case 13://Enter
-        playing = false;
-        StepForward();
+        // playing = false;
+        // StepForward();
+        video.Stop();
+        video.StepForward(srcimg);
         break;
 
     case 8:  //backspace
     case 127://delete
-        SeekFrame(currentframe - 1);
+        video.SeekFrame(video.CurrentFrame() - 1, srcimg);
         break;
 
     case '0':
-        SeekFrame(0);
+        video.SeekFrame(0,srcimg);
         break;
 
     case 'v':
@@ -286,12 +292,13 @@ void OperateVideoByKeyInput(char key)
 void DrawSlider()
 {
     if(uiVisibility == false) return;
-    float progressRate = (float)currentframe / (framecount - 1);
+    float progressRate = (float)video.CurrentFrame() / (video.FrameCount() - 1);
     float barlength = sliderWidth * progressRate;
     sliderMoveArea.width = barlength;
     cv::rectangle(dstimg,sliderBaseArea,fontcolor,-1);
     cv::rectangle(dstimg,sliderMoveArea,sliderColor,-1);
-    cv::putText(dstimg,std::to_string(currentframe),cv::Point(sliderStartWidth, sliderStartHeight - 10),
+    cv::putText(dstimg,std::to_string(video.CurrentFrame()),
+                cv::Point(sliderStartWidth, sliderStartHeight - 10),
                 cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
 }
 
@@ -302,7 +309,8 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
         if(x >= sliderStartWidth - sliderCollisionPadding && x <= sliderStartWidth + sliderWidth + sliderCollisionPadding &&
            y >= sliderStartHeight - sliderCollisionPadding && y <= sliderStartHeight + sliderHeight + sliderCollisionPadding &&
            uiVisibility == true){
-                playing = false;
+                // playing = false;
+                video.Stop();
                 isSliderDragged = true;
         }
         //回転操作開始
@@ -319,20 +327,20 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
         //スライダーの位置に合わせて動画読み込み
         if(isSliderDragged == true){
             x -= sliderStartWidth;
-            reachEnd = false;
+            // reachEnd = false;
             int frame;
             if(x <= 0){
                 // currentframe = 0;
                 frame = 0;
             }
             else if( x >= sliderWidth){
-                frame = framecount - 1;
-                reachEnd = true;
+                frame = video.FrameCount() - 1;
+                // reachEnd = true;
             }
             else{
-                frame = (framecount - 1) * x / sliderWidth;
+                frame = (video.FrameCount() - 1) * x / sliderWidth;
             }
-            SeekFrame(frame);
+            video.SeekFrame(frame,srcimg);
             MakeDstimg(dstimg,srcimg);
             DrawSlider();
             cv::imshow("Main",dstimg);
@@ -347,13 +355,13 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
         if( isSliderDragged == true){
             x -= sliderStartWidth;
             if(x <= 0){
-                currentframe = 0;
+                // currentframe = 0;
             }
             else if( x >= sliderWidth){
-                currentframe = framecount - 1;
+                // currentframe = framecount - 1;
             }
             else{
-                currentframe = (framecount - 1) * x / sliderWidth;
+                // currentframe = (framecount - 1) * x / sliderWidth;
             }
             MakeDstimg(dstimg,srcimg);
             DrawSlider();
@@ -409,7 +417,8 @@ int main(int argc, char **argv) {
         scHeight = std::stoi(argv[3]);
     }
 
-    InitVideo(argv[1]);
+    video.Init(argv[1],srcimg);
+    // InitVideo(argv[1]);
     dstimg = cv::Mat(cv::Size(scWidth, scHeight), srcimg.type(), cv::Scalar::all(0));
 
     InitSlider();
@@ -429,8 +438,9 @@ int main(int argc, char **argv) {
     cv::setMouseCallback("Main",MouseCallback);
     while(true){
         int keyI;
-        if( playing == true){
-            keyI = ProccessVideo();
+        if( video.Playing() == true){
+            keyI = video.Process(srcimg);
+            // keyI = ProcessVideo();
         }
         else{
             keyI = cv::waitKey(0);

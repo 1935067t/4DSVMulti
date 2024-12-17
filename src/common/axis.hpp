@@ -19,11 +19,6 @@ public:
         xAxis = cv::Vec3d(1.0,0.0,0.0);
         yAxis = cv::Vec3d(0.0,1.0,0.0);
         zAxis = cv::Vec3d(0.0,0.0,1.0);
-
-        xRotateMat = cv::Matx33d(0.0);
-        yRotateMat = cv::Matx33d(0.0);
-        zRotateMat = cv::Matx33d(0.0);
-        zyxRotateMat = cv::Matx33d(0.0);
     }
 
     void Rotate(float roll, float pitch, float yaw)

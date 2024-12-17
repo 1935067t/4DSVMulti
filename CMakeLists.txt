@@ -10,6 +10,11 @@ project( 4DSVViewer LANGUAGES CXX)
 
 #コンパイルオプション指定
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -march=native")
+if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2")
+endif()
+set(CMAKE_BUILD_TYPE Release)
+# add_compile_options(-O3 -DNDEBUG -march=native)
 
 # OpenCVのパッケージを探す
 find_package( OpenCV REQUIRED )

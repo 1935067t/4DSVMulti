@@ -182,7 +182,7 @@ void InitVideo(std::string filename, cv::VideoCapture* video, cv::Mat* img)
     video->read(*img);
 }
 
-int ProccessVideo()
+int ProcessVideo()
 {
     tick.stop();
     deltaTime += tick.getTimeMilli();
@@ -235,7 +235,7 @@ void ChangeVideoPos(int x, int y, int z)
     subVideo.read(subSrcimg);
 }
 
-void ReadVideoInformationFile(char * filename)
+void Read4DSVConfig(char * filename)
 {
     std::ifstream config(filename);
     std::string maindir;
@@ -543,7 +543,7 @@ int main(int argc, char **argv) {
         std::cout << "please input filename";
         exit(1);
     }
-    ReadVideoInformationFile(argv[1]);
+    Read4DSVConfig(argv[1]);
 
     if(scWidth > scHeight){
         rotationCorrection = (scWidth / 2) * (scWidth / 2);
@@ -565,7 +565,7 @@ int main(int argc, char **argv) {
     while(true){
         int keyI;
         if( playing == true){
-            keyI = ProccessVideo();
+            keyI = ProcessVideo();
         }
         else{
             keyI = cv::waitKey(0);
