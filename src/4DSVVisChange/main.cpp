@@ -8,6 +8,7 @@
 #include "../common/slider.hpp"
 #include "../common/axis.hpp"
 #include "../common/image.hpp"
+#include "../common/video.hpp"
 
 namespace fs = std::filesystem;
 
@@ -20,14 +21,6 @@ cv::Point2i previousMousePos, currentMousePos , diffMousePos;
 bool shouldMouseRotation = false;
 float rotationCorrection = 0.000016f;//後で（スクリーンサイズ / 2）**2を入れる
 
-//動画
-bool playing = false;
-bool reachEnd = false;
-int framecount;
-int currentframe;
-float frameInterval;
-float deltaTime;
-cv::TickMeter tick;
 
 //4dsv
 cv::Point3i dimension;
@@ -35,7 +28,7 @@ cv::Point3i position;
 int visCount, visNum; //可視化手法数、何番目か
 std::vector<std::string> filepathes;
 
-cv::VideoCapture video;
+Video video;
 Image image;
 Axis axis;
 
@@ -54,62 +47,6 @@ Slider slider;
 
 bool uiVisibility = true;
 
-
-void StepForward()
-{
-    if(reachEnd){
-        playing = false;
-        return;
-    }
-    video.read(image.src);
-    currentframe++;
-    if(currentframe >= framecount - 1){
-        reachEnd = true;
-    }
-    return;
-}
-
-void SeekFrame(int frame)
-{
-    playing = false;
-    reachEnd = false;
-    currentframe = frame;
-    if(currentframe < 0){
-        currentframe = 0;
-    }
-    else if(currentframe >= framecount - 1){
-        currentframe = framecount - 1;
-        reachEnd = true;
-    }
-    video.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-    video.read(image.src);
-}
-
-void InitVideo(std::string filename)
-{
-    video.open(filename);
-    framecount = video.get(cv::CAP_PROP_FRAME_COUNT);
-    float framerate = video.get(cv::CAP_PROP_FPS);
-    frameInterval = 1000.0f / framerate;
-    currentframe = 0;
-    video.read(image.src);
-}
-
-int ProcessVideo()
-{
-    tick.stop();
-    deltaTime += tick.getTimeMilli();
-    tick.reset();
-    tick.start();
-
-    int key = cv::pollKey();
-    
-    if(deltaTime >= frameInterval){
-        deltaTime -= frameInterval;
-        StepForward();
-    }
-    return key;
-}
 
 void ChangeVideoPos(int x, int y, int z, int vis)
 {
@@ -130,9 +67,7 @@ void ChangeVideoPos(int x, int y, int z, int vis)
     visNum     = movedV;
     int fileIdx = visNum * dimension.x * dimension.y * dimension.z +
                   position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
-    video.open(filepathes[fileIdx]);
-    video.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-    video.read(image.src);
+    video.SwitchFile(filepathes[fileIdx], image.src);
 }
 
 void Read4DSVConfig(char * filename)
@@ -172,7 +107,7 @@ void Read4DSVConfig(char * filename)
 
     int fileIdx = visNum * dimension.x * dimension.y * dimension.z +
                   position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
-    InitVideo(filepathes[fileIdx]);
+    video.Init(filepathes[fileIdx], image.src);
 
     image.SetDstMat(cv::Size(scWidth, scHeight));
 }
@@ -204,29 +139,20 @@ void OperateVideoByKeyInput(char key)
     switch (key)
     {
     case ' '://space
-        playing = !playing;
-        if(playing == true){
-            tick.start();
-        }
-        else{
-            tick.stop();
-            tick.reset();
-        }
-        deltaTime = 0.0f;
+        video.SwitchPlaying();
         break;
 
     case 13://Enter
-        playing = false;
-        StepForward();
+        video.StepForward(image.src);
         break;
 
     case 8:  //backspace
     case 127://delete
-        SeekFrame(currentframe - 1);
+        video.SeekFrame(video.CurrentFrame() - 1, image.src);
         break;
 
     case '0':
-        SeekFrame(0);
+        video.SeekFrame(0, image.src);
         break;
 
     case 'v':
@@ -299,7 +225,7 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             slider.JudgeDrag(x, y);
         }
         if(slider.Dragged() == true){
-            playing = false;
+            video.Stop();
         }
         //回転操作開始
         else
@@ -314,11 +240,10 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
     if( event == cv::EVENT_LBUTTONUP){
         //スライダーの位置に合わせて動画読み込み
         if(slider.Dragged() == true){
-            reachEnd = false;
             slider.MouseDrag(x);
             int frame = slider.GetCount();
             
-            SeekFrame(frame);
+            video.SeekFrame(frame, image.src);
             image.MakeDstimg(axis.x, axis.y, axis.z);
             DrawTextInfo();
             slider.Draw(image.dst,frame);
@@ -333,10 +258,9 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
         //マウスの位置に合わせてスライダーUIの表示を変える（動画は読み込まない）
         if( slider.Dragged() == true){
             slider.MouseDrag(x);
-            currentframe = slider.GetCount();
             image.MakeDstimg(axis.x, axis.y, axis.z);
             DrawTextInfo();
-            slider.Draw(image.dst,currentframe);
+            slider.Draw(image.dst);
             cv::imshow("Main",image.dst);
         }
         //画面中央から離れるほど画面の奥方向に対する回転を強くする
@@ -354,7 +278,7 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             axis.Rotate(roll,pitch,yaw);
             image.MakeDstimg(axis.x, axis.y, axis.z);
             DrawTextInfo();
-            slider.Draw(image.dst,currentframe);
+            slider.Draw(image.dst);
             cv::imshow("Main",image.dst);
 
             previousMousePos.x = currentMousePos.x;
@@ -375,7 +299,7 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
 
         image.MakeDstimg(axis.x, axis.y, axis.z);
         DrawTextInfo();
-        if(uiVisibility) slider.Draw(image.dst,currentframe);
+        if(uiVisibility) slider.Draw(image.dst);
         cv::imshow("Main",image.dst);
     }
 }
@@ -388,7 +312,7 @@ int main(int argc, char **argv) {
     }
     Read4DSVConfig(argv[1]);
     slider.SetShape(cv::Point2i(sliderStartWidth,sliderStartHeight),cv::Size2i(sliderWidth,sliderHeight));
-    slider.SetTotalCount(framecount);
+    slider.SetTotalCount(video.FrameCount());
     slider.SetFontColor(cv::Scalar(255,255,255));
 
     // if(scWidth > scHeight){
@@ -407,8 +331,8 @@ int main(int argc, char **argv) {
     cv::setMouseCallback("Main",MouseCallback);
     while(true){
         int keyI;
-        if( playing == true){
-            keyI = ProcessVideo();
+        if( video.Playing() == true){
+            keyI = video.Process(image.src);
         }
         else{
             keyI = cv::waitKey(0);
@@ -424,7 +348,7 @@ int main(int argc, char **argv) {
 
         image.MakeDstimg(axis.x, axis.y, axis.z);
         DrawTextInfo();
-        if(uiVisibility) slider.Draw(image.dst,currentframe);
+        if(uiVisibility) slider.Draw(image.dst, video.CurrentFrame());
         cv::imshow("Main",image.dst);
     }
  

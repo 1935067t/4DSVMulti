@@ -1,3 +1,6 @@
+//4DSVを基に全方位から切り取る作業や動画の読み込みなどを2回ずつ行っている
+//例えばMakeDstImgはMainウィンドウ用とSubウィンドウ用にそれぞれの場所で2回呼んでいる
+
 #include <opencv2/opencv.hpp>
 #include <filesystem>
 #include <fstream>
@@ -243,12 +246,12 @@ void Read4DSVConfig(char * filename)
     std::string extension;
     int framerate;
 
-    config >> maindir;
+    config >> maindir; //Mainウィンドウで表示する動画群のディレクトリパスを読み込み
     config >> extension;
     config >> dimension.x >> dimension.y >> dimension.z;
     config >> position.x >> position.y >> position.z;
     config >> framerate;
-    config >> subdir;
+    config >> subdir; //Subウィンドウで表示する動画群のディレクトリパス読み込み
 
     if(fs::exists(maindir) == false || fs::exists(subdir) == false){
         printf("video directory not Found\n");
@@ -256,6 +259,7 @@ void Read4DSVConfig(char * filename)
     }
     
     //extensionが一致するファイルのパスを取得する
+    //Mainウィンドウで表示する動画群のファイルパスを探す
     {
         fs::directory_iterator iter(maindir), end;
         std::error_code errCode;
@@ -267,6 +271,7 @@ void Read4DSVConfig(char * filename)
             }
         }
     }
+    //Subウィンドウで表示する用のパス探索
     {
         fs::directory_iterator iter(subdir), end;
         std::error_code errCode;
@@ -295,6 +300,7 @@ void Read4DSVConfig(char * filename)
     subDstimg = cv::Mat(cv::Size(scWidthSub, scHeightSub), srcimg.type(), cv::Scalar::all(0));
 }
 
+//w,a,s,d,q,eキーで視線方向を変える
 void RotateByKeyInput(char key)
 {
     switch (key)
@@ -317,6 +323,7 @@ void RotateByKeyInput(char key)
     }
 }
 
+//動画の再生・停止などの操作
 void OperateVideoByKeyInput(char key)
 {
     switch (key)
@@ -371,6 +378,7 @@ void OperateVideoByKeyInput(char key)
     }
 }
 
+//i,j,kキーを押すことで視点位置を変える
 void OperateVideoSwitch(char key)
 {
     int x = 0;
@@ -398,6 +406,7 @@ void OperateVideoSwitch(char key)
 }
 
 //画面左上に情報を表示
+//Mainウィンドウのみ
 void DrawTextInfo()
 {
     if(uiVisibility == false) return;
@@ -409,6 +418,7 @@ void DrawTextInfo()
 }
 
 //画面右下にスライダーを表示
+//Mainウィンドウのみ
 void DrawSlider()
 {
     if(uiVisibility == false) return;

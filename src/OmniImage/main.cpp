@@ -137,9 +137,9 @@ int main(int argc, char **argv) {
     cv::setMouseCallback("dst",MouseCallback);
     cv::imshow("dst",image.dst);
 
-    cv::namedWindow("aa");
-    cv::createTrackbar("sensitive","aa",nullptr,30);
-    cv::setTrackbarMin("sensitive","aa",1);
+    // cv::namedWindow("aa");
+    // cv::createTrackbar("sensitive","aa",nullptr,30);
+    // cv::setTrackbarMin("sensitive","aa",1);
 
     while(true){
         int keyI = cv::waitKey(0);
