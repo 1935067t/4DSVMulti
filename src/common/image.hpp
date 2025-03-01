@@ -2,27 +2,30 @@
 #include <opencv2/opencv.hpp>
 #include <cmath>
 
-const float maxfovy = 90.0f;
-const float minfovy = 25.0f;
-
-const double pi = acos(-1);
-const double dpi = pi * 2;
-
 
 typedef cv::Point3_<uint8_t> Pixel;
 
+//全方位画像から画面に表示する画像を切り出すためのクラス
 class Image{
 private:
     float mFovy;
 
+    const float maxfovy = 90.0f;
+    const float minfovy = 25.0f;
+
+    const double pi = acos(-1);
+    const double dpi = pi * 2;
+
 public:
-    cv::Mat src, dst;
+    cv::Mat src; //動画などから読み込んだ全方位画像
+    cv::Mat dst; //全方位画像から切り出し画面に映す画像
 
     Image()
     {
         mFovy = 60.0f;
     }
 
+    //dstの大きさを設定する
     void SetDstMat(cv::Size scSize)
     {
         dst = cv::Mat(scSize, src.type(), cv::Scalar::all(0));
@@ -35,7 +38,7 @@ public:
         mFovy = std::clamp(mFovy, minfovy, maxfovy);
     }
 
-        //元の全方位画像から普通の透視投影の画像を作る
+    //元の全方位画像から普通の透視投影の画像を作る
     void MakeDstimg(cv::Vec3d& xAxis, cv::Vec3d& yAxis, cv::Vec3d& zAxis)
     {
     const int srcWidth = src.cols;
@@ -50,11 +53,14 @@ public:
     float correctionX = std::sin((aspect * mFovy / 2.0 * pi) / 180.0);
     float correctionY = std::sin((mFovy / 2.0 * pi) / 180.0);
 
+    //軸を使って画面に投影するスクリーンのワールド座標を計算する
     lefttop = -xAxis * correctionX + yAxis * correctionY + zAxis;
     righttop = xAxis * correctionX + yAxis * correctionY + zAxis;
     leftbottom = -xAxis * correctionX - yAxis * correctionY + zAxis;
     rightbottom = xAxis * correctionX - yAxis * correctionY + zAxis;
 
+    //スクリーンの各ピクセルが円筒座標で何であるかを計算して、
+    //全方位画像の対応するピクセルの位置を求めて色を塗る
     dst.forEach<Pixel>
     ([this,&lefttop, &leftbottom, &righttop, &rightbottom,
      srcWidth, srcHeight, channels, dstWidth, dstHeight]

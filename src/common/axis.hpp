@@ -1,6 +1,8 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 
+//投影するスクリーンを作るための軸クラス
+//軸を回転させることでスクリーンを回転させる
 class Axis{
 private:
     //回転行列
@@ -14,6 +16,7 @@ public:
         Reset();
     }
 
+    //視線方向を最初に戻す
     void Reset()
     {
         x = cv::Vec3d(1.0,0.0,0.0);

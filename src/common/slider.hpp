@@ -50,6 +50,7 @@ public:
     }
 
     //ビデオから現在のフレームを教えてもらうときのDraw関数
+    //mCountにcountを代入する
     void Draw(cv::Mat &img, size_t count){
         mCount = count;
         float progressRate = (float)count / (mTotalCount - 1);
@@ -70,6 +71,8 @@ public:
                     cv::FONT_HERSHEY_PLAIN, 1.5, mFontColor, 2.0);
     }
 
+    //ドラッグした時にその位置がスライダーであるかを判定する
+    //mDraggedをtrueかfalseにする
     void JudgeDrag(int x, int y){
         if(x >= mStartPos.x - mCollisionPad && x <= mStartPos.x + mSize.width + mCollisionPad &&
            y >= mStartPos.y - mCollisionPad && y <= mStartPos.y + mSize.height + mCollisionPad){
@@ -95,14 +98,17 @@ public:
         }
     }
 
+    //mDraggedをfalseに
     void ReleaseDrag(){
         mDragged = false;
     }
 
+    //mDraggedの真偽を返す
     bool Dragged(){
         return mDragged;
     }
 
+    //mCountの値を返す
     int GetCount(){
         return mCount;
     }
@@ -119,10 +125,12 @@ public:
         mFontColor = color;
     }
 
+    //スライダーの最大値を決める（最小値は0固定）
     void SetTotalCount(int totalcount){
         mTotalCount = totalcount;
     }
 
+    //スライダーの左上の座標とスライダーの大きさを設定する
     void SetShape(cv::Point2i pos, cv::Size2i size){
         mStartPos = pos;
         mSize = size;

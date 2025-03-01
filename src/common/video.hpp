@@ -15,6 +15,7 @@ private:
 
 public:
 
+    //ファイルパスを指定して動画を開き、srcimgに最初のフレームを読み込む
     void Init(std::string filepath, cv::Mat& srcimg)
     {
         mCapture.open(filepath);
@@ -43,6 +44,7 @@ public:
         mDeltaTime = 0.0f;
     }
 
+    //動画を一時停止
     void Stop()
     {
         mPlaying = false;
@@ -81,6 +83,7 @@ public:
         return key;
     }
 
+    //動画の再生位置をframeにセットしてimgに読み込む
     void SeekFrame(int frame, cv::Mat&img)
     {
         mPlaying = false;
@@ -97,6 +100,7 @@ public:
         mCapture.read(img);
     }
 
+    //総フレーム数を返す
     int FrameCount(){return mFramecount;}
     int CurrentFrame(){return mCurrentframe;}
     bool Playing(){return mPlaying;}
