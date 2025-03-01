@@ -8,37 +8,21 @@
 #include <cmath>
 
 #include "../common/slider.hpp"
+#include "../common/axis.hpp"
+#include "../common/image.hpp"
 
 namespace fs = std::filesystem;
 
 typedef cv::Point3_<uint8_t> Pixel;
 
-const double pi = acos(-1);
-const double dpi = pi * 2;
-
-//視野角
-float fovy = 70.0f;
-const float maxfovy = 90.0f;
-const float minfovy = 25.0f;
-
 //デフォルトスクリーンサイズ
 int scHeight = 600;
 int scWidth = 600;
 
-//回転軸
-cv::Vec3d xAxis(1.0,0.0,0.0);
-cv::Vec3d yAxis(0.0,1.0,0.0);
-cv::Vec3d zAxis(0.0,0.0,1.0);
-//回転行列
-cv::Matx33d xRotateMat(0.0);
-cv::Matx33d yRotateMat(0.0);
-cv::Matx33d zRotateMat(0.0);
-cv::Matx33d zyxRotateMat(0.0);
-
 //マウスドラッグによる回転
 cv::Point2i previousMousePos, currentMousePos , diffMousePos;
 bool shouldMouseRotation = false;
-int rotationCorrection = 100000;//後で（スクリーンサイズ / 2）**2を入れる
+float rotationCorrection = 0.000016f;//後で（スクリーンサイズ / 2）**2を入れる
 
 //動画
 bool playing = false;
@@ -52,6 +36,7 @@ cv::TickMeter tick;
 //4dsv
 cv::Point3i dimension;
 cv::Point3i position;
+int posnum;//視点数
 int fileIdx;
 int visCount, visNum; //可視化手法数、何番目か
 std::vector<std::string> filepathes;
@@ -59,13 +44,13 @@ std::vector<std::string> filepathes;
 //解像度切り替え版で使う変数
 std::vector<std::vector<int>> isHighRes;
 cv::Rect2i windowFrame(0,0,scWidth,scHeight);
-cv::Scalar frameColor(0,255,255);
+cv::Scalar frameColor(0,255,0);
 
 cv::VideoCapture video;
-cv::Mat srcimg;
-cv::Mat dstimg;
+Axis axis;
+Image image;
 
-cv::Scalar fontcolor(0,0,255);
+cv::Scalar fontcolor(255,255,255);
 
 //スライダー
 const int sliderWidth = 150;
@@ -81,76 +66,13 @@ Slider slider;
 bool uiVisibility = true;
 
 
-//元の全方位画像から普通の透視投影の画像を作る
-void MakeDstimg(cv::Mat& dstimg, const cv::Mat& srcimg)
-{
-    const int srcWidth = srcimg.cols;
-    const int srcHeight = srcimg.rows;
-    const int channels = srcimg.channels();
-
-    const int dstWidth = dstimg.cols;
-    const int dstHeight = dstimg.rows;
-
-    cv::Vec3f lefttop, righttop, leftbottom, rightbottom;
-    float aspect = (float)dstWidth / (float)dstHeight;
-    float correctionX = std::sin((aspect * fovy / 2.0 * pi) / 180.0);
-    float correctionY = std::sin((fovy / 2.0 * pi) / 180.0);
-
-    lefttop = -xAxis * correctionX + yAxis * correctionY + zAxis;
-    righttop = xAxis * correctionX + yAxis * correctionY + zAxis;
-    leftbottom = -xAxis * correctionX - yAxis * correctionY + zAxis;
-    rightbottom = xAxis * correctionX - yAxis * correctionY + zAxis;
-
-    dstimg.forEach<Pixel>
-    ([&srcimg, &lefttop, &leftbottom, &righttop, &rightbottom,
-     srcWidth, srcHeight, channels, dstWidth, dstHeight]
-    (Pixel& pixel, const int position[]) -> void
-    {
-        cv::Vec3f coord = lefttop + position[1] * (righttop - lefttop) / (dstWidth - 1)
-                                  + position[0] * (leftbottom - lefttop) / (dstHeight - 1);
-
-        coord = cv::normalize(coord);
-        float theta = std::acos(coord.val[1]);
-        float phi = coord.val[0] != 0 ? std::atan2(coord.val[0],coord.val[2]) : 0.0f;
-            
-        int srcWIdx = (int)((pi + phi) / dpi * (srcWidth - 1));
-        int srcHIdx = (int)( theta / pi * (srcHeight - 1));
-
-        int srcIdx = srcHIdx * srcWidth * channels + srcWIdx * channels;
-        pixel.x = srcimg.data[srcIdx];
-        pixel.y = srcimg.data[srcIdx + 1];
-        pixel.z = srcimg.data[srcIdx + 2];
-    });
-}
-
-void Rotate(float roll, float pitch, float yaw)
-{
-    cv::Rodrigues(xAxis * roll, xRotateMat);
-    cv::Rodrigues(yAxis * pitch,yRotateMat);
-    cv::Rodrigues(zAxis * yaw,  zRotateMat);
-
-    zyxRotateMat = xRotateMat * yRotateMat * zRotateMat;
-    cv::Matx31d zAxisMat(zAxis);
-    cv::Matx31d xAxisMat(xAxis);
-    zAxisMat = zyxRotateMat * zAxisMat;
-    xAxisMat = zyxRotateMat * xAxisMat;
-
-    zAxis = cv::Vec3d(zAxisMat.val);
-    xAxis = cv::Vec3d(xAxisMat.val);
-
-    zAxis = cv::normalize(zAxis);
-    xAxis = cv::normalize(xAxis);
-    yAxis = zAxis.cross(xAxis);
-    yAxis = cv::normalize(yAxis);
-}
-
 void StepForward()
 {
     if(reachEnd){
         playing = false;
         return;
     }
-    video.read(srcimg);
+    video.read(image.src);
     currentframe++;
     if(currentframe >= framecount - 1){
         reachEnd = true;
@@ -171,17 +93,17 @@ void SeekFrame(int frame)
         reachEnd = true;
     }
     video.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-    video.read(srcimg);
+    video.read(image.src);
 }
 
-void InitVideo(std::string filename, cv::VideoCapture* video, cv::Mat* img)
+void InitVideo(std::string filename)
 {
-    video->open(filename);
-    framecount = video->get(cv::CAP_PROP_FRAME_COUNT);
-    float framerate = video->get(cv::CAP_PROP_FPS);
+    video.open(filename);
+    framecount = video.get(cv::CAP_PROP_FRAME_COUNT);
+    float framerate = video.get(cv::CAP_PROP_FPS);
     frameInterval = 1000.0f / framerate;
     currentframe = 0;
-    video->read(*img);
+    video.read(image.src);
 }
 
 int ProcessVideo()
@@ -221,7 +143,7 @@ void ChangeVideoPos(int x, int y, int z, int vis)
                   position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
     video.open(filepathes[fileIdx]);
     video.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-    video.read(srcimg);
+    video.read(image.src);
 }
 
 void Read4DSVConfig(char * filename)
@@ -264,13 +186,14 @@ void Read4DSVConfig(char * filename)
         std::cout << "dimension is strange" << std::endl;
         exit(1);
     }
-
+    posnum = dimension.x * dimension.y * dimension.z;
 
     fileIdx = visNum * dimension.x * dimension.y * dimension.z +
                   position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
-    InitVideo(filepathes[fileIdx],&video,&srcimg);
+    InitVideo(filepathes[fileIdx]);
 
-    dstimg = cv::Mat(cv::Size(scWidth, scHeight), srcimg.type(), cv::Scalar::all(0));
+    // dstimg = cv::Mat(cv::Size(scWidth, scHeight), srcimg.type(), cv::Scalar::all(0));
+    image.SetDstMat(cv::Size(scWidth, scHeight));
 
     //各フレームのカメラで解像度を取得する
     isHighRes.resize(framecount);
@@ -289,6 +212,7 @@ void Read4DSVConfig(char * filename)
             while(iss >> num){
                 isHighRes[count].push_back(num-1);
             }
+            std::sort(isHighRes[count].begin(), isHighRes[count].end());
             count++;
         }
     }
@@ -301,10 +225,10 @@ void DrawTextInfo()
     std::stringstream ssDim,ssPos;
     std::string visnumStr = "vis" + std::to_string(visNum);
     ssDim << "dim" << dimension;
-    cv::putText(dstimg,ssDim.str(),cv::Point(10,20),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
+    cv::putText(image.dst,ssDim.str(),cv::Point(10,20),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
     ssPos << "pos" << position;
-    cv::putText(dstimg,ssPos.str(),cv::Point(10,40),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
-    cv::putText(dstimg,visnumStr,cv::Point(10,60),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
+    cv::putText(image.dst,ssPos.str(),cv::Point(10,40),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
+    cv::putText(image.dst,visnumStr,cv::Point(10,60),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
 }
 
 void DrawWindowFrame()
@@ -312,9 +236,9 @@ void DrawWindowFrame()
     if(isHighRes[currentframe].empty() == false & 
        std::binary_search(isHighRes[currentframe].begin(),
                           isHighRes[currentframe].end(),
-                          fileIdx))
+                          fileIdx%posnum))
     {
-        cv::rectangle(dstimg,windowFrame,frameColor,3);
+        cv::rectangle(image.dst,windowFrame,frameColor,3);
     }
 }
 
@@ -337,17 +261,17 @@ void OperateByKey(char key)
     switch (key)
     {
     case 'a'://左へ
-        Rotate(0,-0.05f,0);break;
+        axis.Rotate(0,-0.05f,0);break;
     case 'd'://右へ
-        Rotate(0,0.05f,0);break;
+        axis.Rotate(0,0.05f,0);break;
     case 'w'://上へ
-        Rotate(-0.05f,0,0);break;
+        axis.Rotate(-0.05f,0,0);break;
     case 's'://下へ
-        Rotate(0.05f,0,0);break;
+        axis.Rotate(0.05f,0,0);break;
     case 'q'://左回転
-        Rotate(0,0,-0.05f);break;
+        axis.Rotate(0,0,-0.05f);break;
     case 'e'://右回転
-        Rotate(0,0,0.05f);break;
+        axis.Rotate(0,0,0.05f);break;
     
     default:
         break;
@@ -394,17 +318,11 @@ void OperateVideoByKeyInput(char key)
 
     //ズームイン、ズームアウト
     case '+':
-        fovy -= 5.0f;
-        if(fovy < minfovy){
-            fovy = minfovy;
-        }
+        image.Zoom(-5.0f);
         break;
 
     case '-':
-        fovy += 5.0f;
-        if(fovy > maxfovy){
-            fovy = maxfovy;
-        }
+        image.Zoom(5.0f);
         break;
     
     default:
@@ -471,11 +389,11 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             int frame = slider.GetCount();
             
             SeekFrame(frame);
-            MakeDstimg(dstimg,srcimg);
+            image.MakeDstimg(axis.x, axis.y, axis.z);
             DrawTextInfo();
-            slider.Draw(dstimg,frame);
+            slider.Draw(image.dst,frame);
             DrawWindowFrame();
-            cv::imshow("Main",dstimg);
+            cv::imshow("Main",image.dst);
         }
         slider.ReleaseDrag();
         shouldMouseRotation = false;
@@ -487,11 +405,11 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
         if( slider.Dragged() == true){
             slider.MouseDrag(x);
             currentframe = slider.GetCount();
-            MakeDstimg(dstimg,srcimg);
+            image.MakeDstimg(axis.x, axis.y, axis.z);
             DrawTextInfo();
-            slider.Draw(dstimg,currentframe);
+            slider.Draw(image.dst,currentframe);
             DrawWindowFrame();
-            cv::imshow("Main",dstimg);
+            cv::imshow("Main",image.dst);
         }
         //画面中央から離れるほど画面の奥方向に対する回転を強くする
         //x軸から離れるほど左右方向の視線変更を小さくする
@@ -503,14 +421,14 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
 
             float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) / (float)(scWidth * scWidth);
             float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) / (float)(scHeight * scHeight);
-            float yaw = previousMousePos.cross(currentMousePos) / rotationCorrection;
+            float yaw = previousMousePos.cross(currentMousePos) * rotationCorrection;
 
-            Rotate(roll,pitch,yaw);
-            MakeDstimg(dstimg,srcimg);
+            axis.Rotate(roll,pitch,yaw);
+            image.MakeDstimg(axis.x, axis.y, axis.z);
             DrawTextInfo();
-            slider.Draw(dstimg,currentframe);
+            if(uiVisibility)slider.Draw(image.dst,currentframe);
             DrawWindowFrame();
-            cv::imshow("Main",dstimg);
+            cv::imshow("Main",image.dst);
 
             previousMousePos.x = currentMousePos.x;
             previousMousePos.y = currentMousePos.y;
@@ -522,18 +440,17 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
     //Windows版のみ？
     if(event == cv::EVENT_MOUSEWHEEL){
         if(flags > 0){
-            fovy += 5.0f;
+            image.Zoom(5.0f);
         }
         else{
-            fovy -= 5.0f;
+            image.Zoom(-5.0f);
         }
-        fovy = std::clamp(fovy, minfovy, maxfovy);
 
-        MakeDstimg(dstimg,srcimg);
+        image.MakeDstimg(axis.x, axis.y, axis.z);
         DrawTextInfo();
-        if(uiVisibility) slider.Draw(dstimg,currentframe);
+        if(uiVisibility) slider.Draw(image.dst,currentframe);
         DrawWindowFrame();
-        cv::imshow("Main",dstimg);
+        cv::imshow("Main",image.dst);
     }
 }
 
@@ -546,22 +463,22 @@ int main(int argc, char **argv) {
     Read4DSVConfig(argv[1]);
     slider.SetShape(cv::Point2i(sliderStartWidth,sliderStartHeight),cv::Size2i(sliderWidth,sliderHeight));
     slider.SetTotalCount(framecount);
-    slider.SetFontColor(cv::Scalar(0,0,255));
+    slider.SetFontColor(fontcolor);
 
-    if(scWidth > scHeight){
-        rotationCorrection = (scWidth / 2) * (scWidth / 2);
-    }
-    else{
-        rotationCorrection = (scHeight / 2) * (scHeight / 2);
-    }
+    // if(scWidth > scHeight){
+    //     rotationCorrection = (scWidth / 2) * (scWidth / 2);
+    // }
+    // else{
+    //     rotationCorrection = (scHeight / 2) * (scHeight / 2);
+    // }
 
-    std::cout << srcimg.size << std::endl;
-    MakeDstimg(dstimg,srcimg);
+    std::cout << image.src.size << std::endl;
+    image.MakeDstimg(axis.x, axis.y, axis.z);
     DrawTextInfo();
-    slider.Draw(dstimg,0);
+    slider.Draw(image.dst,0);
     DrawWindowFrame();
     cv::namedWindow("Main");
-    cv::imshow("Main",dstimg);
+    cv::imshow("Main",image.dst);
     cv::setMouseCallback("Main",MouseCallback);
     while(true){
         int keyI;
@@ -580,11 +497,11 @@ int main(int argc, char **argv) {
         OperateVideoByKeyInput(keyC);
         OperateVideoSwitch(keyC);
 
-        MakeDstimg(dstimg,srcimg);
+        image.MakeDstimg(axis.x, axis.y, axis.z);
         DrawTextInfo();
-        if(uiVisibility) slider.Draw(dstimg,currentframe);
+        if(uiVisibility) slider.Draw(image.dst,currentframe);
         DrawWindowFrame();
-        cv::imshow("Main",dstimg);
+        cv::imshow("Main",image.dst);
     }
  
     return 0;

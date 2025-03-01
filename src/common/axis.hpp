@@ -3,12 +3,12 @@
 
 class Axis{
 private:
-    //回転軸
-    cv::Vec3d xAxis, yAxis, zAxis;
     //回転行列
     cv::Matx33d xRotateMat, yRotateMat, zRotateMat, zyxRotateMat;
 
 public:
+    cv::Vec3d x, y, z;
+
     Axis()
     {
         Reset();
@@ -16,37 +16,37 @@ public:
 
     void Reset()
     {
-        xAxis = cv::Vec3d(1.0,0.0,0.0);
-        yAxis = cv::Vec3d(0.0,1.0,0.0);
-        zAxis = cv::Vec3d(0.0,0.0,1.0);
+        x = cv::Vec3d(1.0,0.0,0.0);
+        y = cv::Vec3d(0.0,1.0,0.0);
+        z = cv::Vec3d(0.0,0.0,1.0);
     }
 
     void Rotate(float roll, float pitch, float yaw)
     {
-        cv::Rodrigues(xAxis * roll, xRotateMat);
-        cv::Rodrigues(yAxis * pitch,yRotateMat);
-        cv::Rodrigues(zAxis * yaw,  zRotateMat);
+        cv::Rodrigues(x * roll, xRotateMat);
+        cv::Rodrigues(y * pitch,yRotateMat);
+        cv::Rodrigues(z * yaw,  zRotateMat);
 
         zyxRotateMat = xRotateMat * yRotateMat * zRotateMat;
-        cv::Matx31d zAxisMat(zAxis);
-        cv::Matx31d xAxisMat(xAxis);
+        cv::Matx31d zAxisMat(z);
+        cv::Matx31d xAxisMat(x);
         zAxisMat = zyxRotateMat * zAxisMat;
         xAxisMat = zyxRotateMat * xAxisMat;
 
-        zAxis = cv::Vec3d(zAxisMat.val);
-        xAxis = cv::Vec3d(xAxisMat.val);
+        z = cv::Vec3d(zAxisMat.val);
+        x = cv::Vec3d(xAxisMat.val);
 
-        zAxis = cv::normalize(zAxis);
-        xAxis = cv::normalize(xAxis);
-        yAxis = zAxis.cross(xAxis);
-        yAxis = cv::normalize(yAxis);
+        z = cv::normalize(z);
+        x = cv::normalize(x);
+        y = z.cross(x);
+        y = cv::normalize(y);
+    }
+
+    void DrawAxis(cv::Mat &img, cv::Point pos)
+    {
+        cv::line(img, pos, cv::Point2d(pos.x + x.val[0]*20, pos.y + x.val[1]*20), cv::Scalar(0,0,255),3);
+        cv::line(img, pos, cv::Point2d(pos.x + y.val[0]*20, pos.y + y.val[1]*20), cv::Scalar(255,0,0),3);
+        cv::line(img, pos, cv::Point2d(pos.x + z.val[0]*20, pos.y + z.val[1]*20), cv::Scalar(0,255,0),3);
+        //zの値が大きい順に描画する
     }
 };
-
-void DrawAxis(cv::Mat &img, cv::Vec3d &xAxis, cv::Vec3d &yAxis, cv::Vec3d& zAxis, cv::Point pos)
-{
-    cv::line(img, pos, cv::Point2d(pos.x + xAxis.val[0]*20, pos.y + xAxis.val[1]*20), cv::Scalar(0,0,255),3);
-    cv::line(img, pos, cv::Point2d(pos.x + yAxis.val[0]*20, pos.y + yAxis.val[1]*20), cv::Scalar(255,0,0),3);
-    cv::line(img, pos, cv::Point2d(pos.x + zAxis.val[0]*20, pos.y + zAxis.val[1]*20), cv::Scalar(0,255,0),3);
-    //zの値が大きい順に描画する
-}

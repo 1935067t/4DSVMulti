@@ -4,61 +4,61 @@
 
 class Video{
 private:
-    bool playing;
-    bool reachEnd;
-    int framecount;
-    int currentframe;
-    float frameInterval;
-    float deltaTime;
-    cv::TickMeter tick;
-    cv::VideoCapture capture;
+    bool mPlaying;
+    bool mReachEnd;
+    int mFramecount;
+    int mCurrentframe;
+    float mFrameInterval;
+    float mDeltaTime;
+    cv::TickMeter mTick;
+    cv::VideoCapture mCapture;
 
 public:
 
     void Init(std::string filepath, cv::Mat& srcimg)
     {
-        capture.open(filepath);
-        framecount = capture.get(cv::CAP_PROP_FRAME_COUNT);
-        float framerate = capture.get(cv::CAP_PROP_FPS);
-        frameInterval = 1000.0f / framerate;
-        capture.read(srcimg);
+        mCapture.open(filepath);
+        mFramecount = mCapture.get(cv::CAP_PROP_FRAME_COUNT);
+        float framerate = mCapture.get(cv::CAP_PROP_FPS);
+        mFrameInterval = 1000.0f / framerate;
+        mCapture.read(srcimg);
 
-        currentframe = 0;
-        deltaTime = 0.0f;
-        playing = false;
-        if(currentframe == framecount - 1) reachEnd = false;
+        mCurrentframe = 0;
+        mDeltaTime = 0.0f;
+        mPlaying = false;
+        if(mCurrentframe == mFramecount - 1) mReachEnd = false;
     }
 
     //再生・停止切替
     void SwitchPlaying()
     {
-        playing = !playing;
-        if(playing == true){
-            tick.start();
+        mPlaying = !mPlaying;
+        if(mPlaying == true){
+            mTick.start();
         }
         else{
-            tick.stop();
-            tick.reset();
+            mTick.stop();
+            mTick.reset();
         }
-        deltaTime = 0.0f;
+        mDeltaTime = 0.0f;
     }
 
     void Stop()
     {
-        playing = false;
+        mPlaying = false;
     }
 
     //最後のフレームで無ければ次のフレームを読み込む
     void StepForward(cv::Mat& img)
     {
-        if(reachEnd){
-            playing = false;
+        if(mReachEnd){
+            mPlaying = false;
             return;
         }
-        capture.read(img);
-        currentframe++;
-        if(currentframe >= framecount - 1){
-            reachEnd = true;
+        mCapture.read(img);
+        mCurrentframe++;
+        if(mCurrentframe >= mFramecount - 1){
+            mReachEnd = true;
         }
         return;
     }
@@ -67,15 +67,15 @@ public:
     //戻り値はキー入力
     int Process(cv::Mat& img)
     {
-        tick.stop();
-        deltaTime += tick.getTimeMilli();
-        tick.reset();
-        tick.start();
+        mTick.stop();
+        mDeltaTime += mTick.getTimeMilli();
+        mTick.reset();
+        mTick.start();
 
         int key = cv::pollKey();
     
-        if(deltaTime >= frameInterval){
-            deltaTime -= frameInterval;
+        if(mDeltaTime >= mFrameInterval){
+            mDeltaTime -= mFrameInterval;
             StepForward(img);
         }
         return key;
@@ -83,30 +83,30 @@ public:
 
     void SeekFrame(int frame, cv::Mat&img)
     {
-        playing = false;
-        reachEnd = false;
-        currentframe = frame;
-        if(currentframe < 0){
-            currentframe = 0;
+        mPlaying = false;
+        mReachEnd = false;
+        mCurrentframe = frame;
+        if(mCurrentframe < 0){
+            mCurrentframe = 0;
         }
-        else if(currentframe >= framecount - 1){
-            currentframe = framecount - 1;
-            reachEnd = true;
+        else if(mCurrentframe >= mFramecount - 1){
+            mCurrentframe = mFramecount - 1;
+            mReachEnd = true;
         }
-        capture.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-        capture.read(img);
+        mCapture.set(cv::CAP_PROP_POS_FRAMES, mCurrentframe);
+        mCapture.read(img);
     }
 
-    int FrameCount(){return framecount;}
-    int CurrentFrame(){return currentframe;}
-    bool Playing(){return playing;}
+    int FrameCount(){return mFramecount;}
+    int CurrentFrame(){return mCurrentframe;}
+    bool Playing(){return mPlaying;}
 
     //4DSV用
     //動画の入れ替えから現在のフレームの読み込みまで
     void SwitchFile(std::string filepath, cv::Mat& img)
     {
-        capture.open(filepath);
-        capture.set(cv::CAP_PROP_POS_FRAMES, currentframe);
-        capture.read(img);
+        mCapture.open(filepath);
+        mCapture.set(cv::CAP_PROP_POS_FRAMES, mCurrentframe);
+        mCapture.read(img);
     }
 };

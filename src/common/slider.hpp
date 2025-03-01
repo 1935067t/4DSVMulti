@@ -49,6 +49,7 @@ public:
         mDragged = false;
     }
 
+    //ビデオから現在のフレームを教えてもらうときのDraw関数
     void Draw(cv::Mat &img, size_t count){
         mCount = count;
         float progressRate = (float)count / (mTotalCount - 1);
@@ -56,6 +57,16 @@ public:
         cv::rectangle(img, mBackGroundArea, mBGColor,-1);
         cv::rectangle(img, mMoveArea, mColor, -1);
         cv::putText(img, std::to_string(count), cv::Point(mStartPos.x, mStartPos.y - 10),
+                    cv::FONT_HERSHEY_PLAIN, 1.5, mFontColor, 2.0);
+    }
+
+    //スライダーが持つmCountによって描画する
+    void Draw(cv::Mat &img){
+        float progressRate = (float)mCount / (mTotalCount - 1);
+        mMoveArea.width = (float)mBackGroundArea.width * progressRate;
+        cv::rectangle(img, mBackGroundArea, mBGColor,-1);
+        cv::rectangle(img, mMoveArea, mColor, -1);
+        cv::putText(img, std::to_string(mCount), cv::Point(mStartPos.x, mStartPos.y - 10),
                     cv::FONT_HERSHEY_PLAIN, 1.5, mFontColor, 2.0);
     }
 
@@ -70,6 +81,7 @@ public:
         return;
     }
 
+    //マウスのx座標によってスライダーのmCountを変える
     void MouseDrag(int x){
         x -= mStartPos.x;
         if(x <= 0){
