@@ -10,7 +10,7 @@ project( 4DSVViewer LANGUAGES CXX)
 
 #コンパイルオプション指定
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -march=native")
-if(MSVC)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2")
 endif()
 set(CMAKE_BUILD_TYPE Release)
