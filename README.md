@@ -12,18 +12,40 @@ OmniImage     : 1つの全方位画像を見る
 OmniVideo     : 1つの全方位動画を見る
 ```
 ## 準備
-OpenCV, CMakeが必要です.  
-macの場合はhomebrewで
+C++環境とOpenCV, CMakeが必要です. Windowsの場合はC++のコンパイルにVisual Studioを使います.
+
+### Macの場合
+homebrewで
 ```bash
 brew install opencv
 brew install cmake
 ```
-ubuntu(linux)の場合は
+でインストールできます
+### Ubuntu(Linux)の場合
 ```bash
 sudo apt install libopencv-dev
 sudo apt install cmake
 ```
-とすればインストールできます.
+でインストールできます
+### Windowsの場合 
+- Visual Studioを入れる場合はC++が使えるように「C++によるデスクトップ開発」にチェックを入れてインストールしてください.   
+- OpenCVは https://opencv.org/releases/ からダウンロードして、実行してください.  
+実行するとパスを聞かれるので、そのままにするか適当に決めるかして'Extract'を押して、opencvディレクトリを作ってください.  
+
+次に、cmakeがOpenCVを認識できるようにするために、環境変数に変数OpenCV_DIRを登録します.  
+例えばopencvがC:\Users\aaa\にあるなら
+
+|変数|値|
+|:-------|:----|
+|OpenCV_DIR |C:\Users/aaa\opencv\build|
+
+また、変数PATHにbinディレクトリまでのパスも追加します.
+|変数|値|
+|:-------|:----|
+|PATH |%OpenCV_DIR%\x64\vc16\bin|
+
+環境変数の登録が終わったらパソコンを再起動してください
+
 
 ## ビルドのやり方
 ```bash
@@ -42,9 +64,7 @@ cd build
 #cmakeコマンドでMakeFileを作る(Windowsの場合はVisual Studioソリューションが作られる)
 cmake ..
 
-#実行ファイルを作る
+#実行ファイルを作る(Linux,Macの場合はmakeコマンドでも作れる)
 cmake --build . --config Release
-
-#Linux,Macの場合はmakeコマンドでも実行ファイルを作ることが出来る
 ```
 実行ファイルと同じ名前のディレクトリがsrc以下にあります. 中には使い方を記載したREADME.mdがあるので必要に応じて参照してください.
