@@ -531,10 +531,10 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
     //Windows版のみ？
     if(event == cv::EVENT_MOUSEWHEEL){
         if(flags > 0){
-            fovy += 5.0f;
+            fovy -= 5.0f;
         }
         else{
-            fovy -= 5.0f;
+            fovy += 5.0f;
         }
         fovy = std::clamp(fovy, minfovy, maxfovy);
 

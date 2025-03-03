@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.3)
 
 # ソリューション名を指定
-project( 4DSVViewer LANGUAGES CXX)
+project( 4DSVProjects LANGUAGES CXX)
 # project( OmniVideo LANGUAGES CXX)
 # project( 4DSV LANGUAGES CXX)
 # project( 4DSVVisChange LANGUAGES CXX)
@@ -10,10 +10,12 @@ project( 4DSVViewer LANGUAGES CXX)
 
 #コンパイルオプション指定
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -march=native")
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2")
-endif()
-set(CMAKE_BUILD_TYPE Release)
+# if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+#     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2")
+# else()
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -march=native")
+# endif()
+# set(CMAKE_BUILD_TYPE:String Release)
 # add_compile_options(-O3 -DNDEBUG -march=native)
 
 # OpenCVのパッケージを探す

@@ -137,7 +137,7 @@ void Read4DSVConfig(char * filename)
         std::string line;
         if (!file) 
         { 
-            std::cerr << "ファイルを開けませんでした。" << std::endl; 
+            std::cerr << "can't open resolution information file" << std::endl; 
             exit(1);
         }
         int count = 0;
@@ -365,10 +365,10 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
     //Windows版のみ？
     if(event == cv::EVENT_MOUSEWHEEL){
         if(flags > 0){
-            image.Zoom(5.0f);
+            image.Zoom(-5.0f);
         }
         else{
-            image.Zoom(-5.0f);
+            image.Zoom(+5.0f);
         }
 
         image.MakeDstimg(axis.x, axis.y, axis.z);

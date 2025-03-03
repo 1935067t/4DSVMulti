@@ -291,10 +291,10 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
     //Windows版のみ？
     if(event == cv::EVENT_MOUSEWHEEL){
         if(flags > 0){
-            image.Zoom(5.0f);
+            image.Zoom(-5.0f);
         }
         else{
-            image.Zoom(-5.0f);
+            image.Zoom(+5.0f);
         }
 
         image.MakeDstimg(axis.x, axis.y, axis.z);
