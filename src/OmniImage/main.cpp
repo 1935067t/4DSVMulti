@@ -22,27 +22,6 @@ float rotationSpeedZ = 0.000016f;
 Axis axis;
 Image image;
 
-void ReadSettingfile(char *filename)
-{
-    std::ifstream fs(filename);
-    if(!fs){
-        std::cerr << "can't open setting file" << std::endl;
-        exit;
-    }
-
-    std::string line;
-    while(std::getline(fs,line)){
-        std::stringstream ss(line);
-        std::string entry;
-        ss >> entry;
-
-        if(entry == "SIZE"){
-            ss >> scWidth >> scHeight;
-        }
-    }
-}
-
-
 void OperateByKey(char key)
 {
     switch (key)
@@ -140,8 +119,8 @@ int main(int argc, char **argv) {
     }
     image.src = cv::imread(argv[1]);
 
-    if(argc == 3){
-        ReadSettingfile(argv[2]);
+    if(argc == 4){
+        // scWidth = stoi(argv[2]);
     }
 
     //マウスによる回転の速度設定
