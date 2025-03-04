@@ -25,11 +25,12 @@ float rotationCorrection = 0.000016f;//後で（スクリーンサイズ / 2）*
 //4dsv
 cv::Point3i dimension;
 cv::Point3i position;
+int visCount, visNum; //可視化手法数、何番目か
 std::vector<std::string> filepathes;
 
 Video video;
-Axis axis;
 Image image;
+Axis axis;
 
 cv::Scalar fontcolor(255,255,255);
 
@@ -46,21 +47,26 @@ Slider slider;
 
 bool uiVisibility = true;
 
-void ChangeVideoPos(int x, int y, int z)
+
+void ChangeVideoPos(int x, int y, int z, int vis)
 {
     int movedX = position.x + x;
     int movedY = position.y + y;
     int movedZ = position.z + z;
+    int movedV = visNum + vis;
 
     if(movedX < 0 || movedX >= dimension.x ||
        movedY < 0 || movedY >= dimension.y ||
-       movedZ < 0 || movedZ >= dimension.z)
+       movedZ < 0 || movedZ >= dimension.z ||
+       movedV < 0 || movedV >= visCount)
     {return;}
 
     position.x = movedX;
     position.y = movedY;
     position.z = movedZ;
-    int fileIdx = position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
+    visNum     = movedV;
+    int fileIdx = visNum * dimension.x * dimension.y * dimension.z +
+                  position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
     video.SwitchFile(filepathes[fileIdx], image.src);
 }
 
@@ -72,8 +78,8 @@ void Read4DSVConfig(char * filename)
 
     config >> directorypath;
     config >> extension;
-    config >> dimension.x >> dimension.y >> dimension.z;
-    config >> position.x >> position.y >> position.z;
+    config >> dimension.x >> dimension.y >> dimension.z >> visCount;
+    config >> position.x >> position.y >> position.z >> visNum;
 
     if(fs::exists(directorypath) == false){
         printf("video directory not Found\n");
@@ -81,7 +87,8 @@ void Read4DSVConfig(char * filename)
     }
     
     //extensionが一致するファイルのパスを取得する
-    fs::directory_iterator iter(directorypath), end;
+    // fs::directory_iterator iter(directorypath), end;
+    fs::recursive_directory_iterator iter(directorypath), end;
     std::error_code errCode;
     for(;iter != end; iter.increment(errCode)){
         fs::directory_entry entry = *iter;
@@ -90,15 +97,16 @@ void Read4DSVConfig(char * filename)
             filepathes.push_back(entry.path().string());
         }
     }
+    std::sort(filepathes.begin(),filepathes.end());
 
-    if(dimension.x * dimension.y * dimension.z != (int)filepathes.size()){
+    if(dimension.x * dimension.y * dimension.z * visCount != (int)filepathes.size()){
         std::cout << "dimension is strange" << std::endl;
         exit(1);
     }
 
-    std::sort(filepathes.begin(),filepathes.end());
 
-    int fileIdx = position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
+    int fileIdx = visNum * dimension.x * dimension.y * dimension.z +
+                  position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
     video.Init(filepathes[fileIdx], image.src);
 
     image.SetDstMat(cv::Size(scWidth, scHeight));
@@ -135,7 +143,6 @@ void OperateVideoByKeyInput(char key)
         break;
 
     case 13://Enter
-        // playing = false;
         video.StepForward(image.src);
         break;
 
@@ -171,6 +178,7 @@ void OperateVideoSwitch(char key)
     int x = 0;
     int y = 0;
     int z = 0;
+    int vis = 0;
     switch (key)
     {
     case 'I':
@@ -185,11 +193,15 @@ void OperateVideoSwitch(char key)
         z = -1; break;
     case 'k':
         z = 1;  break;
+    case 'L':
+        vis = -1; break;
+    case 'l':
+        vis = 1; break;
 
     default:
         return;
     }
-    ChangeVideoPos(x, y, z);
+    ChangeVideoPos(x, y, z, vis);
 }
 
 //画面左上に情報を表示
@@ -197,10 +209,12 @@ void DrawTextInfo()
 {
     if(uiVisibility == false) return;
     std::stringstream ssDim,ssPos;
+    std::string visnumStr = "vis" + std::to_string(visNum);
     ssDim << "dim" << dimension;
     cv::putText(image.dst,ssDim.str(),cv::Point(10,20),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
     ssPos << "pos" << position;
     cv::putText(image.dst,ssPos.str(),cv::Point(10,40),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
+    cv::putText(image.dst,visnumStr,cv::Point(10,60),cv::FONT_HERSHEY_PLAIN,1.5,fontcolor,2.0);
 }
 
 void MouseCallback(int event, int x, int y, int flags, void *userdata)
@@ -211,7 +225,6 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             slider.JudgeDrag(x, y);
         }
         if(slider.Dragged() == true){
-            // playing = false;
             video.Stop();
         }
         //回転操作開始
@@ -227,7 +240,6 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
     if( event == cv::EVENT_LBUTTONUP){
         //スライダーの位置に合わせて動画読み込み
         if(slider.Dragged() == true){
-            // reachEnd = false;
             slider.MouseDrag(x);
             int frame = slider.GetCount();
             
@@ -282,12 +294,12 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             image.Zoom(-5.0f);
         }
         else{
-            image.Zoom(5.0f);
+            image.Zoom(+5.0f);
         }
 
         image.MakeDstimg(axis.x, axis.y, axis.z);
         DrawTextInfo();
-        slider.Draw(image.dst);
+        if(uiVisibility) slider.Draw(image.dst);
         cv::imshow("Main",image.dst);
     }
 }
@@ -301,6 +313,7 @@ int main(int argc, char **argv) {
     Read4DSVConfig(argv[1]);
     slider.SetShape(cv::Point2i(sliderStartWidth,sliderStartHeight),cv::Size2i(sliderWidth,sliderHeight));
     slider.SetTotalCount(video.FrameCount());
+    slider.SetFontColor(cv::Scalar(255,255,255));
 
     // if(scWidth > scHeight){
     //     rotationCorrection = (scWidth / 2) * (scWidth / 2);
