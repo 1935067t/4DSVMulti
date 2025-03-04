@@ -21,8 +21,8 @@ cv::Point2i previousMousePos, currentMousePos , diffMousePos;
 bool shouldMouseRotation = false;
 
 //マウスによる回転の補整
-//後で（スクリーンサイズ / 2）**2を入れる
-float rotationCorrection = 0.000016f;
+float rotationSpeedXY = 0.000004f;
+float rotationSpeedZ = 0.000016f;
 
 Axis axis;
 Image image;
@@ -31,6 +31,39 @@ Video video;
 Slider slider;
 
 bool uiVisibility = true;
+
+void ReadSettingfile(char *filename)
+{
+    std::ifstream fs(filename);
+    if(!fs){
+        std::cerr << "can't open setting file" << std::endl;
+        exit;
+    }
+
+    std::string line;
+    while(std::getline(fs,line)){
+        std::stringstream ss(line);
+        std::string entry;
+        int r,g,b;
+        ss >> entry;
+
+        if(entry == "SIZE"){
+            ss >> scWidth >> scHeight;
+        }
+        else if(entry == "FONT"){
+            ss >> r >> g >> b;
+            slider.SetFontColor(cv::Scalar(b,g,r));
+        }
+        else if(entry == "SLIDER"){
+            ss >> r >> g >> b;
+            slider.SetColor(cv::Scalar(b,g,r));
+        }
+        else if(entry == "SLIDERBG"){
+            ss >> r >> g >> b;
+            slider.SetBGColor(cv::Scalar(b,g,r));
+        }
+    }
+}
 
 void InitSlider()
 {
@@ -88,7 +121,16 @@ void OperateVideoByKeyInput(char key)
         break;
 
     case '0':
-        video.SeekFrame(0,image.src);
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+        video.SeekFrame(video.FrameCount() * (key - '0') * 0.1,image.src);
         break;
 
     case 'v':
@@ -161,9 +203,11 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             currentMousePos.y = y - scHeight / 2;
             diffMousePos = currentMousePos - previousMousePos;
 
-            float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) / (float)(scWidth * scWidth);
-            float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) / (float)(scHeight * scHeight);
-            float yaw = previousMousePos.cross(currentMousePos) * rotationCorrection;
+            float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) * rotationSpeedXY;
+            float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) * rotationSpeedXY;
+            // float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) / (float)(scWidth * scWidth);
+            // float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) / (float)(scHeight * scHeight);
+            float yaw = previousMousePos.cross(currentMousePos) * rotationSpeedZ;
 
             axis.Rotate(roll,pitch,yaw);
             image.MakeDstimg(axis.x, axis.y, axis.z);
@@ -197,9 +241,8 @@ int main(int argc, char **argv) {
         std::cout << "please input filename";
         exit(1);
     }
-    if(argc == 4){
-        scWidth = std::stoi(argv[2]);
-        scHeight = std::stoi(argv[3]);
+    if(argc == 3){
+        ReadSettingfile(argv[2]);
     }
 
     video.Init(argv[1],image.src);
@@ -207,19 +250,27 @@ int main(int argc, char **argv) {
 
     InitSlider();
 
-    // if(scWidth > scHeight){
-    //     rotationCorrection = (scWidth / 2) * (scWidth / 2);
-    // }
-    // else{
-    //     rotationCorrection = (scHeight / 2) * (scHeight / 2);
-    // }
+        // cv::namedWindow("aa");
+    // cv::createTrackbar("sensitive","aa",nullptr,30);
+    // cv::setTrackbarMin("sensitive","aa",1);
 
-    std::cout << image.src.size << std::endl;
+    rotationSpeedXY = 1.0f / (scWidth * scHeight);
+    if(scWidth > scHeight){
+        rotationSpeedZ = 1.0f / ((scWidth / 2) * (scWidth / 2));
+    }
+    else{
+        rotationSpeedZ = 1.0f / ((scHeight / 2) * (scHeight / 2));
+    }
+
     image.MakeDstimg(axis.x, axis.y, axis.z);
     if(uiVisibility) slider.Draw(image.dst, video.CurrentFrame());
     cv::namedWindow("Main");
     cv::imshow("Main",image.dst);
     cv::setMouseCallback("Main",MouseCallback);
+
+    std::cout << "image  size: " << image.src.size << std::endl;
+    std::cout << "window size: " << image.dst.size << std::endl;
+
     while(true){
         int keyI;
         if( video.Playing() == true){

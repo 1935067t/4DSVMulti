@@ -8,6 +8,7 @@ private:
     bool mReachEnd;
     int mFramecount;
     int mCurrentframe;
+    int mFramerate;
     float mFrameInterval;
     float mDeltaTime;
     cv::TickMeter mTick;
@@ -20,8 +21,8 @@ public:
     {
         mCapture.open(filepath);
         mFramecount = mCapture.get(cv::CAP_PROP_FRAME_COUNT);
-        float framerate = mCapture.get(cv::CAP_PROP_FPS);
-        mFrameInterval = 1000.0f / framerate;
+        mFramerate = mCapture.get(cv::CAP_PROP_FPS);
+        mFrameInterval = 1000.0f / mFramerate;
         mCapture.read(srcimg);
 
         mCurrentframe = 0;

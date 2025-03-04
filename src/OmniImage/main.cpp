@@ -1,3 +1,5 @@
+#include <sstream>
+#include <fstream>
 #include <opencv2/opencv.hpp>
 #include <cmath>
 #include "../common/axis.hpp"
@@ -7,8 +9,6 @@
 //スクリーンサイズ
 int scWidth = 600;
 int scHeight = 600;
-int a=1;
-int a_max=2;
 
 //キーボードで回転させるときの回転の大きさ
 const float rotationAngle = 0.05f;
@@ -16,10 +16,31 @@ const float rotationAngle = 0.05f;
 //マウス回転用変数
 cv::Point2i previousMousePos, currentMousePos , diffMousePos;
 bool shouldMouseRotation = false;
-float rotationCorrection = 0.000016f; //マウス座標の変化に定数をかけて回転の大きさを作る
+float rotationSpeedXY = 0.000004f;//マウス座標の変化に定数をかけて回転の大きさを作る
+float rotationSpeedZ = 0.000016f;
 
 Axis axis;
 Image image;
+
+void ReadSettingfile(char *filename)
+{
+    std::ifstream fs(filename);
+    if(!fs){
+        std::cerr << "can't open setting file" << std::endl;
+        exit;
+    }
+
+    std::string line;
+    while(std::getline(fs,line)){
+        std::stringstream ss(line);
+        std::string entry;
+        ss >> entry;
+
+        if(entry == "SIZE"){
+            ss >> scWidth >> scHeight;
+        }
+    }
+}
 
 
 void OperateByKey(char key)
@@ -82,9 +103,11 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             currentMousePos.y = y - scHeight / 2;
             diffMousePos = currentMousePos - previousMousePos;
 
-            float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) / (float)(scWidth * scWidth);
-            float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) / (float)(scHeight * scHeight);
-            float yaw = previousMousePos.cross(currentMousePos) * rotationCorrection;
+            float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) * rotationSpeedXY;
+            float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) * rotationSpeedXY;
+            // float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) / (float)(scWidth * scWidth);
+            // float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) / (float)(scHeight * scHeight);
+            float yaw = previousMousePos.cross(currentMousePos) * rotationSpeedZ;
 
             axis.Rotate(roll,pitch,yaw);
             image.MakeDstimg(axis.x, axis.y, axis.z);
@@ -117,29 +140,28 @@ int main(int argc, char **argv) {
     }
     image.src = cv::imread(argv[1]);
 
-    if(argc == 4){
-        scWidth = std::stoi(argv[2]);
-        scHeight = std::stoi(argv[3]);
+    if(argc == 3){
+        ReadSettingfile(argv[2]);
     }
 
-    // if(scWidth > scHeight){
-    //     rotationCorrection = (scWidth / 2) * (scWidth / 2);
-    // }
-    // else{
-    //     rotationCorrection = (scHeight / 2) * (scHeight / 2);
-    // }
+    //マウスによる回転の速度設定
+    rotationSpeedXY = 1.0f / (scWidth * scHeight);
+    if(scWidth > scHeight){
+        rotationSpeedZ = 1.0f /((scWidth / 2) * (scWidth / 2));
+    }
+    else{
+        rotationSpeedZ = 1.0f / ((scHeight / 2) * (scHeight / 2));
+    }
 
     image.SetDstMat(cv::Size(scWidth, scHeight));
-    std::cout << image.src.size << std::endl;
     image.MakeDstimg(axis.x, axis.y, axis.z);
     // DrawAxis(dstimg, xAxis, yAxis, zAxis, cv::Point(250, 250));
     cv::namedWindow("dst",cv::WINDOW_NORMAL);
     cv::setMouseCallback("dst",MouseCallback);
     cv::imshow("dst",image.dst);
 
-    // cv::namedWindow("aa");
-    // cv::createTrackbar("sensitive","aa",nullptr,30);
-    // cv::setTrackbarMin("sensitive","aa",1);
+    std::cout << "image  size: " << image.src.size << std::endl;
+    std::cout << "window size: " << scWidth << " x " << scHeight << std::endl; 
 
     while(true){
         int keyI = cv::waitKey(0);

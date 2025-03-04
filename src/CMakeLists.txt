@@ -1,6 +1,6 @@
 
 #
-#各ビュワーごとにビルドしたい場合はこのファイルを各ディレクトリにコピーしてください
+#4DSV,OmniImage,OmniVideoそれぞれでビルドしたい場合はこのファイルを各ディレクトリにコピーしてください
 #
 set(SOURCE_CODE main CACHE NAME "Target object name")
 

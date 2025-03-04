@@ -19,7 +19,8 @@ int scWidth = 600;
 //マウスドラッグによる回転
 cv::Point2i previousMousePos, currentMousePos , diffMousePos;
 bool shouldMouseRotation = false;
-float rotationCorrection = 0.000016f;//後で（スクリーンサイズ / 2）**2を入れる
+float rotationSpeedXY = 0.000004f;
+float rotationSpeedZ = 0.000016f;
 
 
 //4dsv
@@ -34,19 +35,64 @@ Axis axis;
 
 cv::Scalar fontcolor(255,255,255);
 
-//スライダー
-const int sliderWidth = 150;
-const int sliderHeight = 10;
-const int sliderPaddingWidth = 10;//スライダーを画面端からどれだけ離すか
-const int sliderPaddingHeight = 20;
-const int sliderCollisionPadding = 10;//スライダーの操作判定を見た目より少し大きくする
-const int sliderStartWidth = scWidth - sliderWidth - sliderPaddingWidth;
-const int sliderStartHeight = scHeight - sliderHeight - sliderPaddingHeight;
-
 Slider slider;
 
 bool uiVisibility = true;
 
+void InitSlider()
+{
+    int sliderWidth = 150;
+    int sliderHeight = 10;
+    int sliderPaddingWidth = 20;//スライダーを画面端からどれだけ離すか
+    int sliderPaddingHeight = 20;
+    int sliderCollisionPadding = 10;//スライダーの操作判定を見た目より少し大きくする
+    int sliderStartWidth = scWidth - sliderWidth - sliderPaddingWidth;
+    int sliderStartHeight = scHeight - sliderHeight - sliderPaddingHeight;
+
+    slider.SetShape(cv::Point2i(sliderStartWidth,sliderStartHeight),
+                    cv::Size2i(sliderWidth,sliderHeight));
+    slider.SetTotalCount(video.FrameCount());
+}
+
+void ReadSettingfile(char *filename)
+{
+    std::ifstream fs(filename);
+    if(!fs){
+        std::cerr << "can't open setting file" << std::endl;
+        exit;
+    }
+
+    std::string line;
+    while(std::getline(fs,line)){
+        std::stringstream ss(line);
+        std::string entry;
+        int r,g,b;
+        ss >> entry;
+
+        if(entry == "SIZE"){
+            ss >> scWidth >> scHeight;
+        }
+        else if(entry == "FONT"){
+            ss >> r >> g >> b;
+            fontcolor = cv::Scalar(b,g,r);
+            slider.SetFontColor(cv::Scalar(b,g,r));
+        }
+        else if(entry == "SLIDER"){
+            ss >> r >> g >> b;
+            slider.SetColor(cv::Scalar(b,g,r));
+        }
+        else if(entry == "SLIDERBG"){
+            ss >> r >> g >> b;
+            slider.SetBGColor(cv::Scalar(b,g,r));
+        }
+    }
+}
+
+int CalcFileIdx()
+{
+    return visNum * dimension.x * dimension.y * dimension.z +
+           position.z * dimension.y * dimension.x + position.y * dimension.x + position.x;
+}
 
 void ChangeVideoPos(int x, int y, int z, int vis)
 {
@@ -151,12 +197,27 @@ void OperateVideoByKeyInput(char key)
         video.SeekFrame(video.CurrentFrame() - 1, image.src);
         break;
 
-    case '0':
-        video.SeekFrame(0, image.src);
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            video.SeekFrame(video.FrameCount() * (key - '0') * 0.1,image.src);
         break;
 
     case 'v':
         uiVisibility = !uiVisibility;
+        break;
+
+    case 'D':
+        std::cout << filepathes[CalcFileIdx()] << std::endl;
+        std::cout << "frame: " << video.CurrentFrame() << " / " << video.FrameCount() << std::endl;
+        std::cout << std::endl;
         break;
 
     //ズームイン、ズームアウト
@@ -271,9 +332,11 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
             currentMousePos.y = y - scHeight / 2;
             diffMousePos = currentMousePos - previousMousePos;
 
-            float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) / (float)(scWidth * scWidth);
-            float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) / (float)(scHeight * scHeight);
-            float yaw = previousMousePos.cross(currentMousePos) * rotationCorrection;
+            // float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) / (float)(scWidth * scWidth);
+            // float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) / (float)(scHeight * scHeight);
+            float roll = -diffMousePos.y * (scWidth - std::abs(currentMousePos.x) * 2) * rotationSpeedXY;
+            float pitch = -diffMousePos.x * (scHeight - std::abs(currentMousePos.y) * 2) * rotationSpeedXY;
+            float yaw = previousMousePos.cross(currentMousePos) * rotationSpeedZ;
 
             axis.Rotate(roll,pitch,yaw);
             image.MakeDstimg(axis.x, axis.y, axis.z);
@@ -305,30 +368,36 @@ void MouseCallback(int event, int x, int y, int flags, void *userdata)
 }
 
 int main(int argc, char **argv) {
-    std::cout << cv::getVersionString() << std::endl;
     if(argc == 1){
         std::cout << "please input filename";
         exit(1);
     }
+    if(argc == 3){
+        ReadSettingfile(argv[2]);
+    }
     Read4DSVConfig(argv[1]);
-    slider.SetShape(cv::Point2i(sliderStartWidth,sliderStartHeight),cv::Size2i(sliderWidth,sliderHeight));
-    slider.SetTotalCount(video.FrameCount());
-    slider.SetFontColor(cv::Scalar(255,255,255));
+    InitSlider();
 
-    // if(scWidth > scHeight){
-    //     rotationCorrection = (scWidth / 2) * (scWidth / 2);
-    // }
-    // else{
-    //     rotationCorrection = (scHeight / 2) * (scHeight / 2);
-    // }
+    rotationSpeedXY = 1.0f / (scWidth * scHeight);
+    if(scWidth > scHeight){
+        rotationSpeedZ = 1.0f / ((scWidth / 2) * (scWidth / 2));
+    }
+    else{
+        rotationSpeedZ = 1.0f / ((scHeight / 2) * (scHeight / 2));
+    }
 
-    std::cout << image.src.size << std::endl;
     image.MakeDstimg(axis.x, axis.y, axis.z);
     DrawTextInfo();
     slider.Draw(image.dst,0);
     cv::namedWindow("Main");
     cv::imshow("Main",image.dst);
     cv::setMouseCallback("Main",MouseCallback);
+
+    std::cout << "OpenCV version " << cv::getVersionString() << std::endl;
+    std::cout << "src    size: " << image.src.size << std::endl;
+    std::cout << "window size: " << image.dst.size << std::endl;
+    std::cout << std::endl;
+
     while(true){
         int keyI;
         if( video.Playing() == true){
