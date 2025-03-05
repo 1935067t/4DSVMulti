@@ -101,9 +101,17 @@ public:
         mCapture.read(img);
     }
 
+    void SetFramefate(int framerate)
+    {
+        mFramerate = framerate;
+        if(mFramerate < 1) mFramerate = 1;
+        mFrameInterval = 1000.0f / mFramerate;
+    }
+
     //総フレーム数を返す
     int FrameCount(){return mFramecount;}
     int CurrentFrame(){return mCurrentframe;}
+    int Framerate(){return mFramerate;}
     bool Playing(){return mPlaying;}
 
     //4DSV用

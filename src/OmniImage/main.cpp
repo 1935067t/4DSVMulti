@@ -2,8 +2,10 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 #include <cmath>
+
 #include "../common/axis.hpp"
 #include "../common/image.hpp"
+#include "../common/setting.hpp"
 
 
 //スクリーンサイズ
@@ -21,6 +23,7 @@ float rotationSpeedZ = 0.000016f;
 
 Axis axis;
 Image image;
+Setting setting;
 
 void OperateByKey(char key)
 {
@@ -50,8 +53,17 @@ void OperateByKey(char key)
     case 'r':
         axis.Reset();break;
 
-    case 'b':
-        // std::cout << cv::get << std::endl;
+    //設定ウィンドウを開く・閉じて値を反映する
+    case 'g':
+    if(setting.isOpened() == false){
+        setting.OpenWindow();
+    }
+    else{
+        int framerate;
+        setting.CloseWindow();
+        std::tie(rotationSpeedXY,rotationSpeedZ,std::ignore) = setting.GetTrackbarValues();
+    }
+    break;
     
     default:
         break;
@@ -119,8 +131,10 @@ int main(int argc, char **argv) {
     }
     image.src = cv::imread(argv[1]);
 
+    //ウィンドウサイズ指定
     if(argc == 4){
-        // scWidth = stoi(argv[2]);
+        scWidth = std::stoi(argv[2]);
+        scHeight = std::stoi(argv[3]);
     }
 
     //マウスによる回転の速度設定
@@ -134,8 +148,9 @@ int main(int argc, char **argv) {
 
     image.SetDstMat(cv::Size(scWidth, scHeight));
     image.MakeDstimg(axis.x, axis.y, axis.z);
+    setting.SetInitialValues(rotationSpeedXY, rotationSpeedZ, 1);
     // DrawAxis(dstimg, xAxis, yAxis, zAxis, cv::Point(250, 250));
-    cv::namedWindow("dst",cv::WINDOW_NORMAL);
+    cv::namedWindow("dst");
     cv::setMouseCallback("dst",MouseCallback);
     cv::imshow("dst",image.dst);
 

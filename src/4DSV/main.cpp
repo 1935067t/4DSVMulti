@@ -9,6 +9,7 @@
 #include "../common/axis.hpp"
 #include "../common/image.hpp"
 #include "../common/video.hpp"
+#include "../common/setting.hpp"
 
 namespace fs = std::filesystem;
 
@@ -36,6 +37,7 @@ Axis axis;
 cv::Scalar fontcolor(255,255,255);
 
 Slider slider;
+Setting setting;
 
 bool uiVisibility = true;
 
@@ -228,6 +230,20 @@ void OperateVideoByKeyInput(char key)
     case '-':
         image.Zoom(5.0f);
         break;
+
+    //再生スピードなどの設定ウィンドウを開く・閉じて値を反映する
+    case 'g':
+    if(setting.isOpened() == false){
+        setting.OpenWindow();
+        video.Stop();
+    }
+    else{
+        int framerate;
+        setting.CloseWindow();
+        std::tie(rotationSpeedXY,rotationSpeedZ,framerate) = setting.GetTrackbarValues();
+        video.SetFramefate(framerate);
+    }
+    break;
     
     default:
         break;
@@ -389,6 +405,8 @@ int main(int argc, char **argv) {
     image.MakeDstimg(axis.x, axis.y, axis.z);
     DrawTextInfo();
     slider.Draw(image.dst,0);
+    setting.SetInitialValues(rotationSpeedXY, rotationSpeedZ, video.Framerate());
+
     cv::namedWindow("Main");
     cv::imshow("Main",image.dst);
     cv::setMouseCallback("Main",MouseCallback);
